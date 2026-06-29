@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 import matplotlib.pyplot as plt
 
 
@@ -137,28 +138,28 @@ class GlassFilter:
         print(len(peaks), len(downs))
         return peaks, downs
 
-    def find_gaps(self, peaks: list[list, list]) -> list:
+    def find_peak_windows(self, peaks: list[list, list]) -> list:
         """Объединение кусков подъемов и спадов в одно целое + филтрация под количеству кусков
 
         Args:
             peaks (list[list, list]): массив со списками подъемов и спадов
 
         Returns:
-            gaps (list): массив, который содержит скленные и отфильтрованные подъемы и спады интенсивностей
+            peak_candidates (list): массив, который содержит скленные и отфильтрованные подъемы и спады интенсивностей
         """
         # объединение кусков в одно целое.
         """
-        переходим к склейке массивов в один массив gap'ов 
+        переходим к склейке массивов в один массив peak'ов 
         """
         peaks[0], peaks[1] = self.clue(peaks[0], peaks[1])
         # склеиваем спады и подъемы
-        gaps = []
+        peak_candidates = []
         for i in range(len(peaks[0])):
             s = peaks[0][i][0]
             e = peaks[1][i][1]
-            gap = [s, e]
-            gaps.append(gap)
-        return gaps
+            peak = [s, e]
+            peak_candidates.append(peak)
+        return peak_candidates
 
     def is_seq_is_valid(self, min_points, min_amp, x, y, max_chng) -> bool:
         """Проверка, что sequence с point'ами вообще правильна, на основе ее физических свойств
@@ -217,11 +218,11 @@ class GlassFilter:
             return True
         return False
 
-    def find_potential_peaks(self, gaps: list, intensiv: list, x: float, y: float) -> list:
-        """ищет из всех gap'ов настоящие потенциальные загрязнения в скане, чтобы в дальшейнем из отфильтровать
+    def find_potential_peaks(self, peak_candidates: list, intensiv: list, x: float, y: float) -> list:
+        """ищет из всех peak'ов настоящие потенциальные загрязнения в скане, чтобы в дальшейнем из отфильтровать
 
         Args:
-            gaps (list): gap'ы
+            peak_candidates (list): пики интенсивности
             intensiv (list): массив интенсивностей скана (360 значений)
             x (float): x робота
             y (float): y робота
@@ -231,13 +232,13 @@ class GlassFilter:
         """
         self.sequence.clear()
         potential_peaks = []
-        for gap in gaps:
-            if gap[1] - gap[0] > self.threshold:
+        for peak in peak_candidates:
+            if peak[1] - peak[0] > self.threshold:
                 # теперь проверяе, что это был пик и спад одновременно
-                max_in = max(intensiv[i] for i in range(gap[0], gap[1] + 1))
-                if intensiv[gap[0]] <= max_in and intensiv[gap[-1]] <= max_in:
-                    for i in range(gap[0], gap[1]):
-                        # создаем точку и добавляем ее в последовательность соседних точек gap'ов
+                max_in = max(intensiv[i] for i in range(peak[0], peak[1] + 1))
+                if intensiv[peak[0]] <= max_in and intensiv[peak[-1]] <= max_in:
+                    for i in range(peak[0], peak[1]):
+                        # создаем точку и добавляем ее в последовательность соседних точек peak'ов
                         x = self.coordinates[i][0]
                         y = self.coordinates[i][1]
                         intensivity = intensiv[i]
@@ -246,7 +247,7 @@ class GlassFilter:
                 else:
                     # проверяем sequence на валидность
                     if self.is_seq_is_valid(min_points=3, min_amp=5, x=0, y=0, max_chng=6):
-                        potential_peaks.append(gap)
+                        potential_peaks.append(peak)
         return potential_peaks
 
 
@@ -293,7 +294,7 @@ angles = np.array([i for i in range(0, 360)])
 glass_filter = GlassFilter(3)
 glass_filter.coordinates = glass_filter.calc_range_coordinates(0, 0, 0, scan)
 peaks, downs = glass_filter.find_peaks(intesiv=intesivities, dropout_thresh=7)
-raw_gaps = glass_filter.find_gaps([peaks, downs])
+peak_candidates = glass_filter.find_peak_windows([peaks, downs])
 glass_filter.find_potential_peaks(
-    gaps=raw_gaps, x=0, y=0, intensiv=intesivities)
+    peak_candidates=peak_candidates, x=0, y=0, intensiv=intesivities)
 plot_scan(angles, scan, intesivities, glass_filter.sequence)
