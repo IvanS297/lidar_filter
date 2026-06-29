@@ -4,31 +4,79 @@ import matplotlib.pyplot as plt
 
 
 class Point:
-    def __init__(self, x: float, y: float, i: float = None, ind: int = None):
+    def __init__(self, x: float, y: float, intensivity: float = None, index: int = None, range: int = None, angle: int = None):
+        """Объект точки со скана лидара
+
+        Args:
+            x (float): x точки
+            y (float): y точки
+            intensivity (float, optional): Интенсивность, которая дана точке. Defaults to None.
+            index (int, optional): Индекс в массиве скана. Defaults to None.
+            range (int, optional): Значение дальности до объекта. Defaults to None.
+            angle (int, optional): Угол 0..359 скана лидара. Defaults to None.
+        """
         self.x = x
         self.y = y
-        self.i = i
-        self.ind = ind
+        self.intensivity = intensivity
+        self.index = index
+        self.range = range
+        self.deg_angle = angle
 
     def set_coordinates(self, x: float, y: float):
+        """Изменить x y точки
+
+        Args:
+            x (float): новый x
+            y (float): новый y
+        """
         self.x = x
         self.y = y
 
-    def set_i(self, i: float):
-        self.i = i
+    def set_intensivity(self, intensivity: float):
+        """Изменить интенсивность точки
 
-    def set_ind(self, ind: int):
-        self.ind = ind
+        Args:
+            intensivity (float): новая интенсивность
+        """
+        self.intensivity = intensivity
+
+    def set_index(self, index: int):
+        """Поменять индекс точки
+
+        Args:
+            index (int): новый индекс в массиве скана
+        """
+        self.index = index
+
+    def set_range(self, range: int):
+        """Поменять дальность до объекта в мм
+
+        Args:
+            range (int): Новое расстояние в мм
+        """
+        self.range = range
+
+    def set_angle(self, angle: int):
+        """Изменить угол в градусах для данной точки
+
+        Args:
+            angle (int): угол от 0 до 359
+        """
+        self.deg_angle = angle
 
 
 class GlassFilter:
-    def __init__(self, thresh, i_threshold=5, peak_len=3):
-        self.threshold = thresh
-        self.i_threshold = i_threshold
+    def __init__(self, max_cliff: int = 300):
+        """Фильтр, который выявляет куски скана, похожие на пик интенсивности. Эти пики интенсивности появляются из-за встречи луча лидара и стекла или зеркала.
+
+        Args:
+            max_cliff (int, optional): Максимальный разрыв по дальности между точками в мм. Defaults to 300.
+        """
+        self.max_cliff = max_cliff
         self.sequence = []
         self.coordinates = []
 
-    def calc_range_coordinates(self, x: float, y: float, theta: float, scan: np.array) -> list:
+    def scan_to_points(self, x: float, y: float, theta: float, scan: np.array) -> list:
         """Находим координаты препятсвий по скану
 
         Args:
@@ -47,121 +95,7 @@ class GlassFilter:
             coordinates.append([xo, yo])
         return coordinates
 
-    def find_peaks(self, intesiv: np.array, dropout_thresh: float) -> tuple[list, list]:
-        """ищет скачки интенсивности и спады интенсивности в сыром скане
-
-        Args:
-            intesiv (np.array): массив интенсивностей скана
-            dropout_thresh (float): пород интенсивности, ниже которого уже полный мусор
-
-        Returns:
-            peaks (list): массив индексов старта и конца подъемов интенсивностей
-            downs (list): массив индексов старта и конца спадов интенсивностей
-        """
-        prev = intesiv[0]
-        peaks = []
-        s = e = 0
-        for i in range(1, len(intesiv)):
-            # prev >= dropout_thresh - это dropout фильтр, который отсеивает интенсивности, которые мельше опрделенного порога, т.к. это чистейший мусор
-            # порог подбирается эксперементально
-            if intesiv[i] >= prev and prev >= dropout_thresh:
-                e = i
-            else:
-                if e > s:
-                    peaks.append([s, e])
-                s = i
-            prev = intesiv[i]
-        if e > s:
-            peaks.append([s, e])
-
-        s = e = 0
-        prev = intesiv[0]
-        downs = []
-        for i in range(1, len(intesiv)):
-            if intesiv[i] < prev and intesiv[i] >= dropout_thresh:  # тот же dropout фильтр
-                e = i
-            else:
-                if e > s:
-                    downs.append([s, e])
-                s = i
-            prev = intesiv[i]
-        if e > s:
-            downs.append([s, e])
-        return peaks, downs
-
-    def clue(self, peaks: list, downs: list) -> tuple[list, list]:
-        """Функция, которая фильтрует, ищет пары подъем-спуск. 
-        Количество подъемов и спусков всегда разное, и поэтому эта функция удалет мусор
-
-        Args:
-            peaks (list): возрастания
-            downs (list): убывания
-
-        Returns:
-            tuple[list, list]: отфильтрованные списки подъемов и спусков, каждый индекс одного - это индекс пары из второго
-        """
-        if len(peaks) == 0 or len(downs) == 0:
-            return peaks, downs
-        ind_u = peaks[0][0]
-        ind_d = downs[0][0]
-        trash = []
-        i = 0
-        j = 0
-        if ind_u < ind_d:
-            while i < len(peaks) and j < len(downs):
-                end_ind = peaks[i][1]
-                start_ind = downs[j][0]
-                if end_ind == start_ind:
-                    i += 1
-                    j += 1
-                elif end_ind < start_ind:
-                    trash.append(peaks.pop(i))
-                else:
-                    trash.append(downs.pop(j))
-        else:
-            while i < len(peaks) and j < len(downs):
-                end_ind = downs[j][1]
-                start_ind = peaks[i][0]
-                if end_ind == start_ind:
-                    i += 1
-                    j += 1
-                elif end_ind < start_ind:
-                    trash.append(downs.pop(j))
-                else:
-                    trash.append(peaks.pop(i))
-
-        # если все еще остался мусор, то обрезаем последний
-        if len(peaks) > len(downs):
-            peaks.pop()
-        else:
-            downs.pop()
-        print(len(peaks), len(downs))
-        return peaks, downs
-
-    def find_peak_windows(self, peaks: list[list, list]) -> list:
-        """Объединение кусков подъемов и спадов в одно целое + филтрация под количеству кусков
-
-        Args:
-            peaks (list[list, list]): массив со списками подъемов и спадов
-
-        Returns:
-            peak_candidates (list): массив, который содержит скленные и отфильтрованные подъемы и спады интенсивностей
-        """
-        # объединение кусков в одно целое.
-        """
-        переходим к склейке массивов в один массив peak'ов 
-        """
-        peaks[0], peaks[1] = self.clue(peaks[0], peaks[1])
-        # склеиваем спады и подъемы
-        peak_candidates = []
-        for i in range(len(peaks[0])):
-            s = peaks[0][i][0]
-            e = peaks[1][i][1]
-            peak = [s, e]
-            peak_candidates.append(peak)
-        return peak_candidates
-
-    def is_seq_is_valid(self, min_points, min_amp, x, y, max_chng) -> bool:
+    def is_seq_is_valid(self, min_points: int, min_amp: int, x: float, y: float, max_chng: int) -> bool:
         """Проверка, что sequence с point'ами вообще правильна, на основе ее физических свойств
 
         Args:
@@ -169,7 +103,7 @@ class GlassFilter:
             min_amp (int): минимальная амплитуда скачков
             x (float): x робота
             y (float): y робота
-            max_chng (int): максимальное отколенене в дальности между точками и лидаром
+            max_chng (int): максимальное отколенене в дальности между точками и лидаром в мм
 
         Returns:
             valid (bool): True если все 4 условия существования такой sequence верны, False - если хотя бы одно не выполнилось.
@@ -181,14 +115,25 @@ class GlassFilter:
         амплитуда: разница между максимальной интенсивностью и минимальной должна быть больше заданного порога
         физическая непрерывность: расстояние между лидаром и точками sequene не должна резко меняться.
         """
-        # амплитуда:
-        max_ind, i_max = max(enumerate(self.sequence[i].i for i in range(
-            len(self.sequence))), key=lambda x: x[1])
-        i_edge = (self.sequence[0].i + self.sequence[-1].i) / 2
-        amp_valid = (i_max - i_edge) > min_amp
-
         # ширина
+        # фильтруем сначала по ширине последовательности, потому что дальше есть функции, которые работают с итераторами в списках. МОжет быть IndexErro или какой-нибудь дргуой краш
         len_valid = len(self.sequence) >= min_points
+        if not len_valid:
+            return False
+
+        # амплитуда:
+        max_ind, i_max = max(enumerate(self.sequence[i].intensivity for i in range(
+            len(self.sequence))), key=lambda x: x[1])
+        """
+        Есть такой неприятный баг: вершина может оказаться вообще на краю последовательности (индекс 0 или индекс len(sequence) - 1) и тогда логика ломается.
+        """
+        if not (0 < max_ind < len(self.sequence) - 1):
+            return False
+        i_edge = (self.sequence[0].intensivity +
+                  self.sequence[-1].intensivity) / 2
+        amp_valid = (i_max - i_edge) > min_amp
+        if not amp_valid:
+            return False
 
         # непрерывность
         d = prevd = dd = 0
@@ -203,86 +148,124 @@ class GlassFilter:
             if dd > max_chng:
                 cont_valid = False
             prevd = d
+        if not cont_valid:
+            return False
 
         # возрастание и убывание
         shape_valid = True
         for i in range(1, max_ind + 1):
-            if self.sequence[i - 1].i > self.sequence[i].i:
+            if self.sequence[i - 1].intensivity > self.sequence[i].intensivity:
                 shape_valid = False
 
         for i in range(max_ind + 1, len(self.sequence)):
-            if self.sequence[i - 1].i < self.sequence[i].i:
+            if self.sequence[i - 1].intensivity < self.sequence[i].intensivity:
                 shape_valid = False
 
-        if shape_valid and cont_valid and len_valid and amp_valid:
-            return True
-        return False
+        if not shape_valid:
+            return False
 
-    def find_potential_peaks(self, peak_candidates: list, intensiv: list, x: float, y: float) -> list:
-        """ищет из всех peak'ов настоящие потенциальные загрязнения в скане, чтобы в дальшейнем из отфильтровать
+        return True
 
-        Args:
-            peak_candidates (list): пики интенсивности
-            intensiv (list): массив интенсивностей скана (360 значений)
-            x (float): x робота
-            y (float): y робота
-
-        Returns:
-            list: потенциальные пики инетнсивности
-        """
-        self.sequence.clear()
+    def find_potential_peaks(self, intensiv: list, scan: list) -> list:
         potential_peaks = []
-        for peak in peak_candidates:
-            if peak[1] - peak[0] > self.threshold:
-                # теперь проверяе, что это был пик и спад одновременно
-                max_in = max(intensiv[i] for i in range(peak[0], peak[1] + 1))
-                if intensiv[peak[0]] <= max_in and intensiv[peak[-1]] <= max_in:
-                    for i in range(peak[0], peak[1]):
-                        # создаем точку и добавляем ее в последовательность соседних точек peak'ов
-                        x = self.coordinates[i][0]
-                        y = self.coordinates[i][1]
-                        intensivity = intensiv[i]
-                        point = Point(x=x, y=y, i=intensivity, ind=i)
-                        self.sequence.append(point)
-                else:
-                    # проверяем sequence на валидность
-                    if self.is_seq_is_valid(min_points=3, min_amp=5, x=0, y=0, max_chng=6):
-                        potential_peaks.append(peak)
+        self.sequence = []  # последовательность, которая накапливается point'ами в процессе
+        prev_r = None
+        for r in range(len(scan)):
+            # дропаут (нулевая интенсивность или проще говоря мусор, разрыв графика)
+            if scan[r] <= 0:
+                if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
+                    potential_peaks.append(self.sequence)
+                self.sequence = []
+                prev_r = None
+                continue
+
+            # gap - это физический разрыв между точками скана (длина между ними). Проще говоря это евклидово расстояние между соседними точками
+            gap = abs(scan[r] - prev_r) if prev_r is not None else 0.0
+
+            if gap > self.max_cliff:  # разрыв дальности означает, что сегмент кончился
+                if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
+                    # сохранение последовательности точек (пик) в массив потенциальных пиков
+                    potential_peaks.append(self.sequence)
+                self.sequence = []
+            point = Point(x=self.coordinates[r][0], y=self.coordinates[r][1],
+                          intensivity=intensiv[r], index=r, range=scan[r], angle=r)
+            self.sequence.append(point)
+            prev_r = scan[r]
+
+        # последний кусок
+        if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
+            potential_peaks.append(self.sequence)
         return potential_peaks
 
 
-def plot_scan(angles, ranges, intensities, seq):
-    # Сортируем по возрастанию угла
+def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
     order = sorted(range(len(angles)), key=lambda i: angles[i])
     a = [angles[i] for i in order]
     r = [ranges[i] for i in order]
     inten = [intensities[i] for i in order]
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 8))
-    fig.suptitle("RPLIDAR C1 — один полный оборот")
+    # gap считаем ТАК ЖЕ, как фильтр: abs(r - r_prev), с обрывом на дропаутах
+    gaps = [np.nan] * len(r)
+    prev_r = None
+    for i in range(len(r)):
+        if r[i] <= 0:
+            prev_r = None
+            continue
+        if prev_r is not None:
+            gaps[i] = abs(r[i] - prev_r)
+        prev_r = r[i]
 
-    # --- График 1: расстояние ---
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(11, 10), sharex=True)
+    fig.suptitle("Результаты скана")
+
+    # --- 1: расстояние ---
     ax1.plot(a, r, color="tab:blue", linewidth=0.8, marker=".", markersize=3)
     ax1.set_title("Расстояние (ranges)")
-    ax1.set_xlabel("Угол, градусы")
     ax1.set_ylabel("Расстояние, мм")
-    ax1.set_xlim(0, 360)
     ax1.grid(True, alpha=0.3)
 
-    # --- График 2: интенсивность ---
-    ax2.plot(a, inten, color="tab:red",
-             linewidth=0.8, marker=".", markersize=3)
-    ax2.set_title("Интенсивность (intensities)")
-    ax2.set_xlabel("Угол, градусы")
-    ax2.set_ylabel("Уровень интенсивности (quality)")
-    ax2.set_xlim(0, 360)
+    # --- 2: gap (разрыв дальности) ---
+    ax2.plot(a, gaps, color="tab:gray",
+             linewidth=0.6, marker=".", markersize=3)
+    ax2.axhline(threshold, color="tab:red", linestyle="--", linewidth=1.2,
+                label=f"порог {threshold} мм")
+    over = [i for i in range(len(gaps)) if not np.isnan(
+        gaps[i]) and gaps[i] > threshold]
+    ax2.plot([a[i] for i in over], [gaps[i] for i in over], "o",
+             color="tab:red", markersize=6, label="разрыв (новый сегмент)")
+    ax2.set_title("gap = |r - r_prev| — где красное, там скан режется")
+    ax2.set_ylabel("gap, мм")
+    ax2.legend(loc="upper right", fontsize=9)
     ax2.grid(True, alpha=0.3)
 
-    for i in seq:
-        ax2.plot(angles[i.ind+1], intensities[i.ind+1], color="tab:green",
-                 linewidth=1.5, marker=".", markersize=3)
+    # --- 3: интенсивность + пики ---
+    ax3.plot(a, inten, color="tab:red",
+             linewidth=0.8, marker=".", markersize=3, label="интенсивность")
+    ax3.set_title("Интенсивность (intensities) | зелёное — потенциальные пики")
+    ax3.set_xlabel("Угол, градусы")
+    ax3.set_ylabel("Интенсивность (quality)")
+    ax3.set_xlim(0, 360)
+    ax3.grid(True, alpha=0.3)
 
-    plt.tight_layout()
+    # Флаг, чтобы добавить подпись в легенду только один раз
+    label_added = False
+
+    for seq in potential_peaks:
+        idx = sorted((point.index for point in seq), key=lambda i: angles[i])
+
+        # Передаем label только для первого куска, для остальных — None
+        current_label = "пики интенсивности" if not label_added else None
+
+        ax3.plot([angles[i] for i in idx], [intensities[i] for i in idx],
+                 color="tab:green", linewidth=1.5, marker=".", markersize=4,
+                 label=current_label)
+
+        label_added = True  # После первой итерации отключаем добавление label
+
+    # ОБЯЗАТЕЛЬНО: включаем отображение легенды для третьего графика
+    ax3.legend(loc="upper right", fontsize=9)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.show()
 
 
@@ -291,10 +274,12 @@ scan = np.array([370.5, 368.5, 366.25, 363.25, 362.25, 358.75, 359.25, 353.5, 35
 intesivities = np.array([52, 52, 52, 53, 53, 53, 53, 53, 53, 52, 0.0, 36, 37, 37, 0.0, 49, 52, 49, 39, 37, 34, 54, 53, 53, 54, 52, 53, 53, 53, 53, 53, 52, 22, 20, 52, 52, 53, 53, 53, 52, 52, 52, 52, 52, 52, 52, 52, 52, 51, 51, 52, 52, 52, 51, 52, 51, 51, 51, 51, 50, 50, 49, 50, 50, 50, 49, 49, 48, 44, 0.0, 50, 51, 53, 53, 51, 51, 50, 48, 35, 0.0, 0.0, 40, 42, 0.0, 0.0, 47, 47, 47, 48, 26, 0.0, 0.0, 46, 42, 0.0, 0.0, 17, 22, 24, 26, 25, 24, 25, 26, 24, 26, 24, 24, 24, 24, 23, 23, 23, 22, 22, 20, 21, 20, 20, 20, 20, 20, 19, 18, 16, 15, 14, 14, 19, 47, 52, 46, 46, 46, 46, 44, 45, 44, 43, 43, 43, 43, 43, 43, 44, 42, 42, 50, 44, 47, 48, 48, 46, 0.0, 37, 47, 47, 45, 43, 43, 39, 0.0, 46, 39, 40, 51, 49, 45, 44, 42, 33, 36, 0.0, 39, 37, 43, 44,
                         44, 46, 46, 47, 45, 45, 42, 45, 45, 36, 35, 36, 0.0, 0.0, 34, 28, 0.0, 44, 0.0, 50, 50, 50, 50, 51, 52, 51, 50, 50, 50, 50, 50, 51, 52, 51, 51, 51, 50, 49, 49, 50, 50, 50, 50, 50, 50, 50, 49, 49, 48, 48, 48, 48, 40, 22, 44, 51, 53, 55, 55, 54, 55, 52, 49, 46, 48, 50, 53, 53, 52, 52, 51, 49, 44, 0.0, 0.0, 0.0, 26, 32, 32, 32, 30, 32, 31, 11, 0.0, 0.0, 0.0, 21, 24, 1, 2, 18, 18, 1, 21, 19, 20, 19, 19, 13, 0.0, 21, 18, 19, 21, 17, 0.0, 29, 32, 0.0, 15, 11, 0.0, 0.0, 10, 0.0, 8, 9, 6, 0.0, 0.0, 7, 5, 0.0, 0.0, 0.0, 8, 6, 6, 0.0, 7, 7, 6, 0.0, 5, 8, 5, 0.0, 42, 42, 42, 41, 42, 42, 42, 42, 42, 43, 43, 43, 42, 42, 42, 38, 32, 45, 28, 0.0, 47, 0.0, 49, 30, 7, 5, 0.0, 49, 51, 50, 50, 51, 51, 47, 0.0, 0.0, 51, 51, 51, 52, 52, 52, 52, 52, 53])
 angles = np.array([i for i in range(0, 360)])
-glass_filter = GlassFilter(3)
-glass_filter.coordinates = glass_filter.calc_range_coordinates(0, 0, 0, scan)
-peaks, downs = glass_filter.find_peaks(intesiv=intesivities, dropout_thresh=7)
-peak_candidates = glass_filter.find_peak_windows([peaks, downs])
-glass_filter.find_potential_peaks(
-    peak_candidates=peak_candidates, x=0, y=0, intensiv=intesivities)
-plot_scan(angles, scan, intesivities, glass_filter.sequence)
+glass_filter = GlassFilter(300)
+glass_filter.coordinates = glass_filter.scan_to_points(0, 0, 0, scan)
+potential_peaks = glass_filter.find_potential_peaks(
+    intensiv=intesivities, scan=scan)
+for seq in potential_peaks:
+    for point in seq:
+        print(
+            f"index: {point.index} x: {point.x} y: {point.y} angle: {point.deg_angle} intensivity: {point.intensivity}")
+plot_scan(angles, scan, intesivities, potential_peaks)
