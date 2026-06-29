@@ -46,20 +46,24 @@ class GlassFilter:
             coordinates.append([xo, yo])
         return coordinates
 
-    def find_peaks(self, intesiv: np.array):
-        """ищет скачки интенсивности
+    def find_peaks(self, intesiv: np.array, dropout_thresh: float) -> tuple[list, list]:
+        """ищет скачки интенсивности и спады интенсивности в сыром скане
 
         Args:
             intesiv (np.array): массив интенсивностей скана
+            dropout_thresh (float): пород интенсивности, ниже которого уже полный мусор
 
         Returns:
-            _type_: _description_
+            peaks (list): массив индексов старта и конца подъемов интенсивностей
+            downs (list): массив индексов старта и конца спадов интенсивностей
         """
         prev = intesiv[0]
         peaks = []
         s = e = 0
         for i in range(1, len(intesiv)):
-            if intesiv[i] >= prev:
+            # prev >= dropout_thresh - это dropout фильтр, который отсеивает интенсивности, которые мельше опрделенного порога, т.к. это чистейший мусор
+            # порог подбирается эксперементально
+            if intesiv[i] >= prev and prev >= dropout_thresh:
                 e = i
             else:
                 if e > s:
@@ -73,7 +77,7 @@ class GlassFilter:
         prev = intesiv[0]
         downs = []
         for i in range(1, len(intesiv)):
-            if intesiv[i] < prev:
+            if intesiv[i] < prev and intesiv[i] >= dropout_thresh:  # тот же dropout фильтр
                 e = i
             else:
                 if e > s:
@@ -84,36 +88,92 @@ class GlassFilter:
             downs.append([s, e])
         return peaks, downs
 
-    def find_gaps(self, peaks: list[list, list]):
+    def clue(self, peaks: list, downs: list) -> tuple[list, list]:
+        """Функция, которая фильтрует, ищет пары подъем-спуск. 
+        Количество подъемов и спусков всегда разное, и поэтому эта функция удалет мусор
+
+        Args:
+            peaks (list): возрастания
+            downs (list): убывания
+
+        Returns:
+            tuple[list, list]: отфильтрованные списки подъемов и спусков, каждый индекс одного - это индекс пары из второго
+        """
+        if len(peaks) == 0 or len(downs) == 0:
+            return peaks, downs
+        ind_u = peaks[0][0]
+        ind_d = downs[0][0]
+        trash = []
+        i = 0
+        j = 0
+        if ind_u < ind_d:
+            while i < len(peaks) and j < len(downs):
+                end_ind = peaks[i][1]
+                start_ind = downs[j][0]
+                if end_ind == start_ind:
+                    i += 1
+                    j += 1
+                elif end_ind < start_ind:
+                    trash.append(peaks.pop(i))
+                else:
+                    trash.append(downs.pop(j))
+        else:
+            while i < len(peaks) and j < len(downs):
+                end_ind = downs[j][1]
+                start_ind = peaks[i][0]
+                if end_ind == start_ind:
+                    i += 1
+                    j += 1
+                elif end_ind < start_ind:
+                    trash.append(downs.pop(j))
+                else:
+                    trash.append(peaks.pop(i))
+
+        # если все еще остался мусор, то обрезаем последний
+        if len(peaks) > len(downs):
+            peaks.pop()
+        else:
+            downs.pop()
+        print(len(peaks), len(downs))
+        return peaks, downs
+
+    def find_gaps(self, peaks: list[list, list]) -> list:
+        """Объединение кусков подъемов и спадов в одно целое + филтрация под количеству кусков
+
+        Args:
+            peaks (list[list, list]): массив со списками подъемов и спадов
+
+        Returns:
+            gaps (list): массив, который содержит скленные и отфильтрованные подъемы и спады интенсивностей
+        """
         # объединение кусков в одно целое.
-        if len(peaks[0]) > 0 and len(peaks[1]) > 0:
-            if len(peaks[0]) > len(peaks[1]):
-                # либо сначала лишний либо с конца
-                e = peaks[0][0][1]
-                s = peaks[1][0][0]
-                if s != e:
-                    # удалить первый подъем, потому что он лишний
-                    peaks[0].pop(0)
-                else:
-                    peaks[0].pop()  # удалить последний элемент
-            else:
-                e = peaks[1][0][1]
-                s = peaks[0][0][0]
-                if s != e:
-                    peaks[1].pop(0)
-                else:
-                    peaks[1].pop()
+        """
+        переходим к склейке массивов в один массив gap'ов 
+        """
+        peaks[0], peaks[1] = self.clue(peaks[0], peaks[1])
         # склеиваем спады и подъемы
         gaps = []
         for i in range(len(peaks[0])):
             s = peaks[0][i][0]
             e = peaks[1][i][1]
-            # print(s, e)
             gap = [s, e]
             gaps.append(gap)
         return gaps
 
-    def is_seq_is_valid(self, min_points, min_amp, x, y, max_chng):
+    def is_seq_is_valid(self, min_points, min_amp, x, y, max_chng) -> bool:
+        """Проверка, что sequence с point'ами вообще правильна, на основе ее физических свойств
+
+        Args:
+            min_points (int): минимальный размер sequence
+            min_amp (int): минимальная амплитуда скачков
+            x (float): x робота
+            y (float): y робота
+            max_chng (int): максимальное отколенене в дальности между точками и лидаром
+
+        Returns:
+            valid (bool): True если все 4 условия существования такой sequence верны, False - если хотя бы одно не выполнилось.
+        """
+
         """
         форма пика: интенсивность точек в sequence  должна сначала монотонно возрастать, а затем убывать
         минимальная ширина: т.к. пик интенсивности это практически всегда мусор, то длина последовательности должна быть маленькой
@@ -157,7 +217,18 @@ class GlassFilter:
             return True
         return False
 
-    def find_potential_peaks(self, gaps, intensiv, x, y, threshold):
+    def find_potential_peaks(self, gaps: list, intensiv: list, x: float, y: float) -> list:
+        """ищет из всех gap'ов настоящие потенциальные загрязнения в скане, чтобы в дальшейнем из отфильтровать
+
+        Args:
+            gaps (list): gap'ы
+            intensiv (list): массив интенсивностей скана (360 значений)
+            x (float): x робота
+            y (float): y робота
+
+        Returns:
+            list: потенциальные пики инетнсивности
+        """
         self.sequence.clear()
         potential_peaks = []
         for gap in gaps:
@@ -221,9 +292,8 @@ intesivities = np.array([52, 52, 52, 53, 53, 53, 53, 53, 53, 52, 0.0, 36, 37, 37
 angles = np.array([i for i in range(0, 360)])
 glass_filter = GlassFilter(3)
 glass_filter.coordinates = glass_filter.calc_range_coordinates(0, 0, 0, scan)
-peaks, downs = glass_filter.find_peaks(intesiv=intesivities)
+peaks, downs = glass_filter.find_peaks(intesiv=intesivities, dropout_thresh=7)
 raw_gaps = glass_filter.find_gaps([peaks, downs])
-# plot_scan(angles, scan, intesivities, gaps)
 glass_filter.find_potential_peaks(
-    gaps=raw_gaps, x=0, y=0, threshold=5, intensiv=intesivities)
+    gaps=raw_gaps, x=0, y=0, intensiv=intesivities)
 plot_scan(angles, scan, intesivities, glass_filter.sequence)

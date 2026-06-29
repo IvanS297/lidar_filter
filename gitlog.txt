@@ -1,0 +1,4 @@
+1532de897b1f5808d009fbdeae10a077e8470362 - first commit. Тут ничего пока что не было
+17d16c4a49f5017d400fbd432762b7c4d982d65f - edited algorithm.md. Тут был написан алгоритм нахождения пиков (не код)
+f228762be1a3948fb36b7b801313739ca93d2984 - Added semi-glass filter. Dropout filter in process
+Тут был сделан первая версия детектора этих пиков, но ошибками в логике. Нету dropout фильтра, неверно ищутся gap
