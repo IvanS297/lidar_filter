@@ -10,3 +10,6 @@ f228762be1a3948fb36b7b801313739ca93d2984 - Added semi-glass filter. Dropout filt
 
 2b00af1e6e1058cce1256e7717718ba77bbbf640 - Changed var names. 
 Я понял, что тут так называемые gap'ы это не gap'ы вовсе, это сама ворма пика интенсивности. Gap'ы - это разрывы дистаний между точками.
+
+f5d2741af6007f61865c030d31cd50802b5db6a8 - Stage 1: filter can find candidates of trash in scan. Half of filter logic was rewrited. Added visualizations.
+Тут было переписано половина логики. Claude помог мне понять, где я просчитался в логике и что 300+ строк кода, которые я написал это практически все неправильно. Caude помог нормально визуализировать данные.
