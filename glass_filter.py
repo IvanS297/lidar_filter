@@ -1,4 +1,5 @@
 import numpy as np
+from PCA import pca
 import matplotlib.pyplot as plt
 
 
@@ -277,7 +278,10 @@ class GlassFilter:
         for peak in potential_peaks:
             xs = np.array([p.x for p in peak]) # x точки пика
             ys = np.array([p.y for p in peak]) # y точки пика
-            k, b = np.polyfit(x=xs, y=ys, deg=1) # пытаемся получить k, b из уравнения y = kx+b
+            #k, b = np.polyfit(x=xs, y=ys, deg=1) # пытаемся получить k, b из уравнения y = kx+b
+            # PCA вместо np.polyfit (в gitlog.txt написал почему)
+            points = np.column_stack((xs, ys))
+            _, _, _, _, k, b = pca(x=points, num_components=1, return_kb=True)
             start = Point(x=peak[0].x, y=peak[0].y) # Точка начала поверхности
             end = Point(x=peak[-1].x, y=peak[-1].y) # Точка конца поверхности
             beams = [p.index for p in peak] # какие лучи в него попали (индексы лучей)
@@ -346,6 +350,71 @@ def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.show()
+    
+def plot_topdown(coordinates, ranges, potential_peaks=None, zoom=None):
+    """Вид сверху (карта): точки скана в X/Y, лидар в центре,
+    кандидаты выделены, и через них проведена прямая (np.polyfit).
+ 
+    coordinates      : glass_filter.coordinates  ([[x, y], ...])
+    ranges           : scan (чтобы понять, какие лучи валидные)
+    potential_peaks  : список сегментов (списки Point); можно None
+    zoom             : (xmin, xmax, ymin, ymax) или None
+    """
+    X = np.array([c[0] for c in coordinates])
+    Y = np.array([c[1] for c in coordinates])
+    valid = np.array(ranges) > 0
+ 
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.set_title("Вид сверху")
+ 
+    # фон: все валидные точки серым
+    ax.scatter(X[valid], Y[valid], s=8, c="lightgray", zorder=1)
+    # лидар в начале координат
+    ax.scatter([0], [0], marker="*", s=300, c="black", zorder=6, label="лидар")
+ 
+    colors = ["tab:red", "tab:purple", "tab:orange", "tab:green", "tab:brown"]
+    if potential_peaks:
+        for i, seg in enumerate(potential_peaks):
+            c = colors[i % len(colors)]
+            xs = np.array([p.x for p in seg])
+            ys = np.array([p.y for p in seg])
+ 
+            k, b = np.polyfit(xs, ys, 1)              # прямая-поверхность
+            x0, x1 = xs.min(), xs.max()
+            xext = np.linspace(x0 - 250, x1 + 250, 50)
+            ax.plot(xext, k * xext + b, "--", color=c, lw=1.0, alpha=0.7)   # продолжение
+            xin = np.linspace(x0, x1, 50)
+            ax.plot(xin, k * xin + b, "-", color=c, lw=2.6, zorder=4)       # сама поверхность
+ 
+            ax.scatter(xs, ys, s=55, c=c, edgecolors="k", linewidths=0.4, zorder=5)
+            # границы (первая и последняя точка сегмента)
+            ax.scatter([seg[0].x, seg[-1].x], [seg[0].y, seg[-1].y],
+                       s=120, marker="s", facecolors="none", edgecolors=c,
+                       linewidths=2, zorder=6)
+            ax.annotate(f"{seg[0].index}-{seg[-1].index}", (xs.mean(), ys.mean()),
+                        textcoords="offset points", xytext=(10, 10),
+                        color=c, fontsize=10, fontweight="bold")
+ 
+    ax.set_aspect("equal")            # <-- БЕЗ ЭТОГО комната «сплющена»
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel("X, мм")
+    ax.set_ylabel("Y, мм")
+    ax.legend(loc="lower right", fontsize=9)
+    if zoom:
+        ax.set_xlim(zoom[0], zoom[1])
+        ax.set_ylim(zoom[2], zoom[3])
+ 
+    plt.tight_layout()
+    plt.show()
+ 
+ 
+# Пример вызова (у тебя glass_filter уже построен):
+#
+#   plot_topdown(glass_filter.coordinates, scan, potential_peaks)
+#   plot_topdown(glass_filter.coordinates, scan, potential_peaks,
+#                zoom=(-820, 260, -40, 470))
+ 
+
 
 
 scan = np.array([370.5, 368.5, 366.25, 363.25, 362.25, 358.75, 359.25, 353.5, 353.75, 352.0, 0.0, 256.25, 253.5, 255.75, 0.0, 326.5, 257.5, 256.75, 256.25, 258.0, 259.0, 340.75, 342.0, 341.5, 341.0, 339.5, 339.75, 341.25, 340.5, 342.0, 341.5, 343.25, 339.5, 339.25, 343.5, 346.5, 347.0, 347.75, 349.0, 352.0, 352.5, 354.5, 356.0, 359.0, 361.25, 361.25, 364.0, 366.25, 368.5, 370.0, 375.0, 377.25, 381.25, 383.25, 388.25, 391.25, 395.5, 401.0, 403.5, 410.0, 413.0, 418.75, 422.25, 430.5, 439.0, 442.5, 446.25, 455.5, 464.75, 0.0, 269.5, 266.5, 262.25, 258.75, 263.5, 265.5, 272.5, 274.25, 273.25, 0.0, 0.0, 576.0, 572.5, 0.0, 0.0, 351.25, 354.25, 358.75, 362.5, 361.25, 0.0, 0.0, 377.75, 376.75, 0.0, 0.0, 244.75, 246.75, 256.25, 260.0, 268.25, 268.0, 272.0, 278.5, 281.25, 286.25, 291.75, 295.0, 299.75, 303.75, 313.5, 321.25, 325.25, 329.25, 335.5, 346.75, 352.5, 361.75, 368.0, 380.25, 388.75, 394.0, 413.5, 428.0, 448.25, 458.5, 480.0, 491.25, 496.0, 836.75, 853.0, 806.0, 801.0, 806.0, 810.25, 813.75, 818.5, 820.75, 825.0, 834.5, 844.75, 849.25, 853.5, 862.5, 877.0, 874.25, 806.5, 805.0, 810.75, 813.25, 823.0, 825.0, 816.0, 0.0, 716.75, 704.25, 706.75, 713.5, 717.5, 736.5, 750.5, 0.0, 922.25, 735.5, 723.5, 721.25, 725.75, 728.0, 733.0, 749.25, 761.75, 1077.0, 0.0, 1182.0, 403.5, 389.5, 384.5, 374.5, 371.5, 366.5, 365.75, 364.0, 364.5, 366.0, 390.0, 409.5, 415.25, 1968.0, 1981.5, 0.0, 0.0, 2405.5, 2385.5, 0.0, 491.0, 0.0, 401.0, 397.75, 396.0, 396.5, 397.5, 399.5, 393.5, 385.75, 377.5, 376.0, 380.5, 382.0, 384.25, 386.75, 387.0, 385.75, 384.0, 384.0, 379.25, 379.0, 382.0, 383.0, 389.5, 391.5, 397.25, 400.0, 403.0, 405.0, 413.5, 418.0, 431.0, 436.0, 448.5, 446.5, 441.0, 135.5, 136.0, 137.25, 138.75, 138.5, 138.75, 140.0, 143.0, 146.0, 147.0, 148.5, 151.0, 154.0, 154.75, 154.75, 155.5, 157.0, 158.0, 160.25, 0.0, 0.0, 0.0, 3859.5, 3814.0, 3793.0, 3774.0, 3718.0, 3707.0, 3739.5, 3767.0, 0.0, 0.0, 0.0, 4352.25, 4399.5, 4439.0, 4429.5, 4299.0, 4285.0, 4285.0, 3841.25, 3911.0, 3962.5, 4072.0, 4128.0, 4238.75, 0.0, 5495.5, 5459.5, 5413.0, 5408.0, 5392.75, 0.0, 3734.0, 3676.75, 0.0, 459.25, 430.0, 0.0, 0.0, 347.75, 0.0, 312.75, 305.0, 300.5, 0.0, 0.0, 257.75, 247.0, 0.0, 0.0, 0.0, 215.0, 209.25, 198.0, 0.0, 200.0, 182.75, 182.0, 0.0, 159.75, 150.5, 151.0, 0.0, 361.0, 366.75, 369.75, 373.5, 377.25, 379.0, 380.75, 386.75, 389.5, 391.25, 397.5, 400.5, 407.25, 410.0, 416.25, 421.75, 428.75, 559.0, 550.75, 0.0, 532.0, 0.0, 501.75, 492.5, 494.5, 234.0, 0.0, 457.75, 454.75, 446.25, 438.5, 435.75, 427.5, 422.25, 0.0, 0.0, 402.0, 403.0, 397.5, 392.25, 388.75, 386.75, 383.5, 377.75, 374.25])
@@ -363,3 +432,4 @@ for sur in surfaces:
     pe = sur.p_end
     print(f"Start: {ps.x} {ps.y} End: {pe.x} {pe.y}")
 plot_scan(angles, scan, intesivities, potential_peaks)
+plot_topdown(glass_filter.coordinates, scan, potential_peaks)

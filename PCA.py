@@ -18,12 +18,13 @@ import matplotlib.pyplot as plt
 6. спроецировать отцентрированные данные на новые главные компоненты
 """
 
-def pca(x: np.array, num_components: int):
+def pca(x: np.array, num_components: int, return_kb: bool = False):
     """Реализация метода главных компонент (PCA)
 
     Args:
         x (np.array): массив со списками координат точек [[x0, y0], [x1, y1]]
         num_components (int): количество главных компонент
+        return_kb (bool): вернуть коэффициенты прямой y=kx+b
 
     Returns:
         _type_: _description_
@@ -46,12 +47,19 @@ def pca(x: np.array, num_components: int):
     
     #6
     x_reduced = np.dot(x_cent, eigenvec_subset)
-    return x_reduced, sorted_eigenvals, sorted_eigenvecs, x_mean
+    if not return_kb:
+        return x_reduced, sorted_eigenvals, sorted_eigenvecs, x_mean
+    pc1 = sorted_eigenvecs[:, 0]
+    v_x, v_y = pc1[0], pc1[1]
+    k = v_y / v_x
+    mean_x, mean_y = x_mean[0], x_mean[1]
+    b = mean_y - k * mean_x
+    return x_reduced, sorted_eigenvals, sorted_eigenvecs, x_mean, k, b
 
 
 def visualize(points):
     #1
-    _, _, sorted_eigenvecs, x_mean = pca(points, num_components=1)
+    _, _, sorted_eigenvecs, x_mean = pca(points, num_components=1, return_kb=False)
     #2
     pc1 = sorted_eigenvecs[:, 0]
     v_x, v_y = pc1[0], pc1[1]
