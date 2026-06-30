@@ -290,12 +290,20 @@ class GlassFilter:
         
         return surfaces
     
-    def find_real_trash(surfaces: list[Surface], scan: list[float]):
+    def find_real_trash(self, surfaces: list[Surface], scan: list[float], thresh: int = 35):
         """
         Функция берет каждый луч и смотрит, как луч идет до поверхности:
         1. Точка от луча оказалась перед стеклом?
         2. Точка на стекле?
         3. Точка за стеклом?
+        
+        Args:
+            surfaces (list[Surface]): отражащие поверхности
+            scan (list[float]): скан лидара
+            thresh (int): сколько мм по обе стороны от зеркала считать той точкой, которая "лежит на зеркале"
+
+        Returns:
+            list[int]: Массив с индексами дальностей, которые стали мусорными.
         """
         
         """
@@ -315,34 +323,35 @@ class GlassFilter:
         Если r < t, то точка перед стеклом, обычное, препятствие. Точка в норме, не вопринимаем
         """
         trash = []
-        # for surface in surfaces:
-        #     start = surface.p_start
-        #     end = surface.p_end
-        #     a, b0, c = surface.k, -1, surface.b # см фотку с объяснением
-        #     for p in range(start.ind, end.ind):
-        #         if p.range <= 0:
-        #             continue
-        #         theta = np.deg2rad(p.deg_angle)
-        #         t = -1 * c / (a * np.cos(theta) + b0 * np.sin(theta)) # расстояние до пересечения с прямой, см фотку с типами лучей
-        #         if t <= 0:
-        #             continue
-        #         if np.abs(p.range - t) < 35: # r ~= t, небольшой порог в мм
-        #             pass
-        #         elif p.range > t: # r > t 
-        #             trash.append(p)
-        #         else:# r < t
-        #             pass
-        for i in range(len(scan)):
-            if scan[i] <= 0:
-                continue
-            
-            
+        for surface in surfaces:
+            x1, y1 = surface.p_start.x, surface.p_start.y
+            x2, y2 = surface.p_end.x, surface.p_end.y
+            a, b0, c = surface.k, -1, surface.b # см фотку с объяснением
+            for i in range(len(scan)):
+                if scan[i] <= 0: # если это лидар намусорил
+                    continue
+                theta = np.deg2rad(i) # индекс луча, точк, интенсивности это угол от 0 до 359
+                t = -1 * c / (a * np.cos(theta) + b0 * np.sin(theta)) # расстояние до пересечения с прямой, см фотку с типами лучей
+                if t <= 0:
+                    continue
+                inter_x, inter_y = t * np.cos(theta), t * np.sin(theta) # intersection - точка пересечения
+                along_x, along_y = x2 - x1, y2 - y1 # вектор вдоль стекла
+                # s - насколько далеко вдоль отрезка стекла попала текущая точка
+                s = ((inter_x - x1) * along_x + (inter_y - y1) * along_y) / (np.pow(along_x, 2) + np.pow(along_y, 2))
+                # числитель - скалярное произведение вектора от начлаа стекла до точки пересечения на вектор вдоль стекла
+                # знаменатель - длина стекла в квадрате (чтобы получить ответ от 0 до 1)
+                if not (0.0 <= s <= 1.0): # мнимое продолжение?
+                    continue
+                if scan[i] - t > 35: # r > t -> мусор
+                    trash.append(i)
+                    
+        return trash
 
-def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
+def plot_scan(angles, ranges, intensivities, potential_peaks, trash, threshold=300):
     order = sorted(range(len(angles)), key=lambda i: angles[i])
     a = [angles[i] for i in order]
     r = [ranges[i] for i in order]
-    inten = [intensities[i] for i in order]
+    inten = [intensivities[i] for i in order]
 
     # gap считаем ТАК ЖЕ, как фильтр: abs(r - r_prev), с обрывом на дропаутах
     gaps = [np.nan] * len(r)
@@ -359,9 +368,15 @@ def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
     fig.suptitle("Результаты скана")
 
     # --- 1: расстояние ---
-    ax1.plot(a, r, color="tab:blue", linewidth=0.8, marker=".", markersize=3)
+    ax1.plot(a, r, color="tab:blue", linewidth=0.8, marker=".", markersize=3, label="дальности")
     ax1.set_title("Расстояние (ranges)")
     ax1.set_ylabel("Расстояние, мм")
+    trash_x = [angles[i] for i in trash]
+    trash_y = [scan[i] for i in trash]
+    
+    ax1.plot(trash_x, trash_y, color="tab:orange", linestyle="", marker=".", markersize=5, label="мусор")
+
+    ax1.legend(loc="upper right", fontsize=9)
     ax1.grid(True, alpha=0.3)
 
     # --- 2: gap (разрыв дальности) ---
@@ -373,7 +388,7 @@ def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
     ax2.set_ylabel("gap, мм")
     ax2.legend(loc="upper right", fontsize=9)
     ax2.grid(True, alpha=0.3)
-
+    
     # --- 3: интенсивность + пики ---
     ax3.plot(a, inten, color="tab:red", linewidth=0.8, marker=".", markersize=3, label="интенсивность")
     ax3.set_title("Интенсивность (intensities) | зелёное — потенциальные пики")
@@ -390,7 +405,7 @@ def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
 
         # Передаем label только для первого куска, для остальных — None
         current_label = "пики интенсивности" if not label_added else None
-        ax3.plot([angles[i] for i in idx], [intensities[i] for i in idx], color="tab:green", linewidth=1.5, marker=".", markersize=4, label=current_label)
+        ax3.plot([angles[i] for i in idx], [intensivities[i] for i in idx], color="tab:green", linewidth=1.5, marker=".", markersize=4, label=current_label)
         label_added = True  # После первой итерации отключаем добавление label
 
     ax3.legend(loc="upper right", fontsize=9)
@@ -478,5 +493,7 @@ for sur in surfaces:
     ps = sur.p_start
     pe = sur.p_end
     print(f"Start: {ps.x} {ps.y} End: {pe.x} {pe.y}")
-plot_scan(angles, scan, intesivities, potential_peaks)
+trash = glass_filter.find_real_trash(surfaces, scan, 30)
+print(f"Trash: {trash}, type: {type(trash)}")
+plot_scan(angles=angles, ranges=scan, intensivities=intesivities, potential_peaks=potential_peaks, threshold=300, trash=trash)
 plot_topdown(glass_filter.coordinates, scan, potential_peaks)
