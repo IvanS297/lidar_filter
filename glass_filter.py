@@ -1,7 +1,7 @@
 import numpy as np
 from PCA import pca
 import matplotlib.pyplot as plt
-
+# https://pmc.ncbi.nlm.nih.gov/articles/PMC11314935/
 
 class Point:
     def __init__(self, x: float, y: float, intensivity: float = None, index: int = None, range: int = None, angle: int = None):
@@ -289,7 +289,54 @@ class GlassFilter:
             surfaces.append(surface)
         
         return surfaces
-
+    
+    def find_real_trash(surfaces: list[Surface], scan: list[float]):
+        """
+        Функция берет каждый луч и смотрит, как луч идет до поверхности:
+        1. Точка от луча оказалась перед стеклом?
+        2. Точка на стекле?
+        3. Точка за стеклом?
+        """
+        
+        """
+        Описание геометрии.
+        Луч номер i - это направление под углом theta_i. Точка вида (t*cos(theta_i); t*sin(theta_i)), где t >= 0 - расстояние вдоль луча (range).
+        Стекло: Прямая в общей форме ax+by+c=0. У нее есть границы - отрезок начиная с p_start и заканчивая p_end.
+        Пересечение: Надо решить уравнение, подставив точку луча в уравнение прямой. Решать надо относительно t:
+        t = -c / (a*cos(theta_i) + b*sin(theta_i))
+        Три варианта ответа при решении относительно t:
+        1. если знаменатель ~= 0, то луч параллелен стеклу и не пересекает его.
+        2. если t <= 0, то пересечение позади лидара, его не вопринимаем.
+        3. иначе: точка пересечения = (t*cos(theta_i); t*sin(theta_i)). Надо проверить, что она лежит между p_start и p_end (действиельная точка, а не мнимая - точка на воображаемом продолжении прямой).
+        Если нет - этот луч мимо стекла, не вопринимаем
+        
+        Если r ~= t, то луч утолкнулся в само стекло
+        Если r > t, то луч прошел за стекло (может быть даже на сквозь), лиюо отразился. Это и есть мусор, который надо будет замять.
+        Если r < t, то точка перед стеклом, обычное, препятствие. Точка в норме, не вопринимаем
+        """
+        trash = []
+        # for surface in surfaces:
+        #     start = surface.p_start
+        #     end = surface.p_end
+        #     a, b0, c = surface.k, -1, surface.b # см фотку с объяснением
+        #     for p in range(start.ind, end.ind):
+        #         if p.range <= 0:
+        #             continue
+        #         theta = np.deg2rad(p.deg_angle)
+        #         t = -1 * c / (a * np.cos(theta) + b0 * np.sin(theta)) # расстояние до пересечения с прямой, см фотку с типами лучей
+        #         if t <= 0:
+        #             continue
+        #         if np.abs(p.range - t) < 35: # r ~= t, небольшой порог в мм
+        #             pass
+        #         elif p.range > t: # r > t 
+        #             trash.append(p)
+        #         else:# r < t
+        #             pass
+        for i in range(len(scan)):
+            if scan[i] <= 0:
+                continue
+            
+            
 
 def plot_scan(angles, ranges, intensities, potential_peaks, threshold=300):
     order = sorted(range(len(angles)), key=lambda i: angles[i])
