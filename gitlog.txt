@@ -20,3 +20,10 @@ f5d2741af6007f61865c030d31cd50802b5db6a8 - Stage 1: filter can find candidates o
 
 25458efecfba28c7cd0b9ecde471fd0f52587bfa - Added PCA realization.
 Я добавил реализацию PCA для расчетов коэффициентов k и b, потому что np.polyfit может крашнуться при особых условиях (см. выше)
+
+a71b032f26d341050f3adc42e8c0f61a4ba46c5c - Added image-explanation about beams type for final sortering.
+Добавил изображений для объяснения ьазовых принципов алгоритмов. Спасибо claude и gemini.
+
+a2d92b161c33e12532bde8f4952900846f78d6ef - Algorithm finaly can detect real tash data in scan.
+Алгоритм теперь реально детектит мусорные данные на скане. Финальная проверка плоскостей такая: проверить длину луча лидар и реальную дальность до плоскости.
+
