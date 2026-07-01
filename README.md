@@ -3,6 +3,9 @@
 
 ## Citation
 
+If you use this work, code, or data in your research, please cite our paper:
+
+```bibtex
 @article{li2024detection,
   title={Detection and utilization of reflections in LiDAR scans through plane optimization and plane SLAM},
   author={Li, Yinjie and Zhao, Xiting and Schwertfeger, S{\"o}ren},
@@ -13,6 +16,8 @@
   year={2024},
   publisher={MDPI}
 }
+```
+
 
 Статья: «Detection and Utilization of Reflections in LiDAR Scans through Plane
 Optimization and Plane SLAM».
