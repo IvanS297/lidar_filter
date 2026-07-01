@@ -1,9 +1,9 @@
 # Заметки по статье PMC11314935 и почему перешли на Tibebu 2021
 # Фильтр стекла для 2д лидара
 
-## Citation
+## Использование статьи
 
-If you use this work, code, or data in your research, please cite our paper:
+Я использовал в этом проекте статью от ncbi nih:
 
 ```bibtex
 @article{li2024detection,
