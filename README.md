@@ -1,6 +1,8 @@
 # Заметки по статье PMC11314935 и почему перешли на Tibebu 2021
 # Фильтр стекла для 2д лидара
 
+## Citation
+
 @article{li2024detection,
   title={Detection and utilization of reflections in LiDAR scans through plane optimization and plane SLAM},
   author={Li, Yinjie and Zhao, Xiting and Schwertfeger, S{\"o}ren},
