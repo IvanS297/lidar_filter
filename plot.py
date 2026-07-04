@@ -173,3 +173,118 @@ def plot_scan_comparison(scan_before, scan_after, occupied=None, surfaces=None, 
  
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
+
+
+def plot_fragments(scan, sigma, thr, max_gap=2):
+    """Показывает обрывки-кандидаты Фильтра 1 (лучи, где СКО > порога).
+ 
+    Две панели: слева дальность по углу, справа вид сверху.
+    Каждый обрывок — своим цветом, с подписью диапазона лучей.
+ 
+    Args:
+        scan    : список/массив дальностей
+        sigma   : список СКО по лучам (из rolling_stdv); None там, где не посчитано
+        thr     : порог по СКО (у тебя ~150-200)
+        max_gap : склеивать соседние сработавшие лучи, если разрыв между ними <= max_gap
+ 
+    Returns:
+        frags : список обрывков вида [(start_index, end_index), ...]
+    """
+    N = len(scan)
+    flagged = [i for i in range(N) if sigma[i] is not None and sigma[i] > thr]
+ 
+    # склеиваем подряд идущие сработавшие лучи в обрывки
+    frags = []
+    if flagged:
+        start = prev = flagged[0]
+        for x in flagged[1:]:
+            if x - prev <= max_gap:
+                prev = x
+            else:
+                frags.append((start, prev))
+                start = prev = x
+        frags.append((start, prev))
+ 
+    ang = np.arange(N)
+    az = np.deg2rad(ang)
+    X, Y = np.array(scan) * np.cos(az), np.array(scan) * np.sin(az)
+    v = np.array(scan) > 0
+    cmap = plt.cm.tab10
+ 
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    fig.suptitle("Обрывки-кандидаты Фильтра 1 (СКО > %.0f): найдено %d"
+                 % (thr, len(frags)), fontsize=12, fontweight="bold")
+ 
+    # --- панель 1: дальность по углу ---
+    ax1.plot(ang[v], np.array(scan)[v], ".-", color="lightgray", lw=0.6, ms=3, zorder=1)
+    for k, (a, b) in enumerate(frags):
+        c = cmap(k % 10)
+        m = [i for i in range(a, b + 1) if scan[i] > 0]
+        ax1.scatter(m, [scan[i] for i in m], s=30, color=c, zorder=5)
+        ax1.axvspan(a - 0.5, b + 0.5, color=c, alpha=0.12, zorder=0)
+        ax1.text((a + b) / 2, ax1.get_ylim()[1] * 0.95, f"{a}-{b}",
+                 color=c, ha="center", fontsize=8, fontweight="bold")
+    ax1.set_title("Дальность по углу")
+    ax1.set_xlabel("угол"); ax1.set_ylabel("дальность, мм")
+    ax1.grid(True, alpha=0.3); ax1.set_xlim(0, N)
+ 
+    # --- панель 2: вид сверху ---
+    ax2.scatter(X[v], Y[v], s=8, c="lightgray", zorder=1)
+    ax2.scatter([0], [0], marker="*", s=250, c="black", zorder=6)
+    for k, (a, b) in enumerate(frags):
+        c = cmap(k % 10)
+        m = [i for i in range(a, b + 1) if scan[i] > 0]
+        ax2.scatter(X[m], Y[m], s=35, color=c, edgecolors="k", linewidths=0.3, zorder=5)
+    ax2.set_aspect("equal")             # без этого комната сплющена
+    ax2.grid(True, alpha=0.3)
+    ax2.set_title("Вид сверху")
+    ax2.set_xlabel("X, мм"); ax2.set_ylabel("Y, мм")
+ 
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+    return frags
+
+def plot_filter2(scan, frags_before, frags_after):
+    """Результат Фильтра 2 для ФРАГМЕНТОВ (кортежи (start, end)).
+ 
+    Зелёное — фрагмент подтверждён как стекло, красное — выкинут.
+ 
+    Args:
+        scan         : дальности
+        frags_before : список (s, e) ДО Фильтра 2 (копия до вызова check_mirros)
+        frags_after  : список (s, e) ПОСЛЕ (что вернул check_mirros)
+    """
+    N = len(scan)
+    after = {tuple(f) for f in frags_after}
+    ang = np.arange(N); az = np.deg2rad(ang)
+    X, Y = np.array(scan) * np.cos(az), np.array(scan) * np.sin(az)
+    v = np.array(scan) > 0
+ 
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(15, 6))
+    fig.suptitle("Фильтр 2: подтверждено (зелёное) vs выкинуто (красное)",
+                 fontsize=12, fontweight="bold")
+ 
+    a1.plot(ang[v], np.array(scan)[v], ".-", color="lightgray", lw=0.6, ms=3, zorder=1)
+    for (s, e) in frags_before:
+        kept = tuple((s, e)) in after
+        col = "tab:green" if kept else "tab:red"
+        beams = [i for i in range(s, e + 1) if scan[i] > 0]
+        a1.scatter(beams, [scan[i] for i in beams], s=30, color=col, zorder=5)
+        a1.axvspan(s - 0.5, e + 0.5, color=col, alpha=0.12, zorder=0)
+    a1.scatter([], [], c="tab:green", label="подтверждено")
+    a1.scatter([], [], c="tab:red", label="выкинуто")
+    a1.set_title("Дальность по углу"); a1.set_xlabel("угол"); a1.set_ylabel("дальность, мм")
+    a1.legend(fontsize=9); a1.grid(True, alpha=0.3); a1.set_xlim(0, N)
+ 
+    a2.scatter(X[v], Y[v], s=8, c="lightgray", zorder=1)
+    a2.scatter([0], [0], marker="*", s=250, c="black", zorder=6)
+    for (s, e) in frags_before:
+        kept = tuple((s, e)) in after
+        col = "tab:green" if kept else "tab:red"
+        beams = [i for i in range(s, e + 1) if scan[i] > 0]
+        a2.scatter(X[beams], Y[beams], s=35, color=col, edgecolors="k", linewidths=0.3, zorder=5)
+    a2.set_aspect("equal"); a2.grid(True, alpha=0.3)
+    a2.set_title("Вид сверху"); a2.set_xlabel("X, мм"); a2.set_ylabel("Y, мм")
+ 
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
