@@ -26,6 +26,7 @@
 import sys
 import matplotlib.pyplot as plt
 from rplidar import RPLidar, RPLidarException
+import numpy as np
 
 # ---- НАСТРОЙКИ -------------------------------------------------------------
 PORT = "COM16"        # <-- ПОМЕНЯЙ на свой порт (см. Диспетчер устройств -> Порты COM и LPT)
@@ -111,10 +112,19 @@ def plot_scan(angles, ranges, intensities):
     ax2.set_ylabel("Уровень интенсивности (quality)")
     ax2.set_xlim(0, 360)
     ax2.grid(True, alpha=0.3)
-
+    
     plt.tight_layout()
     plt.show()
-
+    
+    fig, ax3 = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(9, 9))
+    ax3.set_theta_zero_location('N')
+    ax3.set_theta_direction(-1)
+    ax3.scatter(np.radians(angles), ranges, color='blue', s=15, label='замеры')
+    ax3.scatter(0, 0, color='red', s=120, marker='*', label='лидар')
+    plt.title("карта комнаты", pad=20, fontsize=14)
+    plt.legend(loc='lower right')
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.show()
 
 def main():
     global PORT

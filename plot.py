@@ -288,3 +288,38 @@ def plot_filter2(scan, frags_before, frags_after):
  
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
+
+def plot_polar_fit(scan, angles,  invalids, inds,  coords, ks, bs, x_means):
+    fig = plt.figure(figsize=(7,7))
+    ax = fig.add_subplot(projection='polar')
+    ax.set_theta_zero_location('N')
+    ax.set_theta_direction(-1)
+    ax.scatter(np.radians(angles), scan, color='blue', s=15, label='замеры')
+    ax.scatter(0, 0, color='red', s=120, marker='*', label='лидар')
+    founded_angles = np.radians(np.array(angles)[inds])
+    founded_dists = np.array(scan)[inds]
+    ax.scatter(invalids, [100] * len(invalids), color="red", s=2, marker="o", label='дропауты, выдвеннутые вперед')
+    ax.scatter(founded_angles, founded_dists, color="green", s=12, marker="o", label='стекла')
+
+    for i in range(len(coords)):
+        xs = np.array([pt[0] for pt in coords[i]])
+        ys = np.array([pt[1] for pt in coords[i]])
+
+        # сами точки сегмента
+        theta_pts = np.arctan2(ys, xs)
+        r_pts = np.hypot(xs, ys)
+        ax.scatter(theta_pts, r_pts, s=30, color='tab:green', zorder=5)
+
+        # линия фита — МНОГО точек вдоль x!
+        x_line = np.linspace(xs.min(), xs.max(), 200)
+        y_line = ks[i] * x_line + bs[i]
+        theta_line = np.arctan2(y_line, x_line)
+        r_line = np.hypot(x_line, y_line)
+        ax.plot(theta_line, r_line, '--', color='blue', linewidth=2)
+
+        # центр масс
+        mx, my = x_means[i]
+        ax.scatter(np.arctan2(my, mx), np.hypot(mx, my), color='green', marker='X', s=150, zorder=6)
+
+    plt.tight_layout()
+    plt.show()
