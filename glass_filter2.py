@@ -116,6 +116,75 @@ class GlassFilter:
         print(candidates)
         return pcs, invalids, candidates
     
+    def valid_filter(self, min_points: int, min_amp: int, x: float, y: float, max_chng: int) -> bool:
+        """Проверка, что sequence с point'ами вообще правильна, на основе ее физических свойств
+
+        Args:
+            min_points (int): минимальный размер sequence
+            min_amp (int): минимальная амплитуда скачков
+            x (float): x робота
+            y (float): y робота
+            max_chng (int): максимальное отколенене в дальности между точками и лидаром в мм
+
+        Returns:
+            valid (bool): True если все 4 условия существования такой sequence верны, False - если хотя бы одно не выполнилось.
+        """
+
+        """
+        форма пика: интенсивность точек в sequence  должна сначала монотонно возрастать, а затем убывать
+        минимальная ширина: т.к. пик интенсивности это практически всегда мусор, то длина последовательности должна быть маленькой
+        амплитуда: разница между максимальной интенсивностью и минимальной должна быть больше заданного порога
+        физическая непрерывность: расстояние между лидаром и точками sequene не должна резко меняться.
+        """
+        # ширина
+        # фильтруем сначала по ширине последовательности, потому что дальше есть функции, которые работают с итераторами в списках. МОжет быть IndexErro или какой-нибудь дргуой краш
+        len_valid = len(self.sequence) >= min_points
+        if not len_valid:
+            return False
+
+        # амплитуда:
+        max_ind, i_max = max(enumerate(self.sequence[i].intensivity for i in range(len(self.sequence))), key=lambda x: x[1])
+        """
+        Есть такой неприятный баг: вершина может оказаться вообще на краю последовательности (индекс 0 или индекс len(sequence) - 1) и тогда логика ломается.
+        """
+        if not (0 < max_ind < len(self.sequence) - 1):
+            return False
+        i_edge = (self.sequence[0].intensivity + self.sequence[-1].intensivity) / 2
+        amp_valid = (i_max - i_edge) > min_amp
+        if not amp_valid:
+            return False
+
+        # непрерывность
+        d = prevd = dd = 0
+        cont_valid = True
+        for i in range(0, len(self.sequence)):
+            point = self.sequence[i]
+            d = np.sqrt(np.pow(point.x - x, 2) + np.pow(point.y - y, 2))
+            if i == 0:
+                prevd = d
+                continue
+            dd = prevd - d
+            if dd > max_chng:
+                cont_valid = False
+            prevd = d
+        if not cont_valid:
+            return False
+
+        # возрастание и убывание
+        shape_valid = True
+        for i in range(1, max_ind + 1):
+            if self.sequence[i - 1].intensivity > self.sequence[i].intensivity:
+                shape_valid = False
+
+        for i in range(max_ind + 1, len(self.sequence)):
+            if self.sequence[i - 1].intensivity < self.sequence[i].intensivity:
+                shape_valid = False
+
+        if not shape_valid:
+            return False
+
+        return True
+    
     def fitting_filter(self, scan: list[float], inds: list[list[int]]):
         coordinates = self.scan_to_points(0, 0, 0, scan)
         vecs = []
