@@ -1,10 +1,44 @@
-"""
-Моя реализация PCA алгоритма
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+"""
+Моя реализзация алгоритма медианного фильтра
+"""
+
+"""
+Алгоритм:
+1. расчитать размеры отсутпов по краям (в индексав)
+2. дополнить края сигнала нулями
+3. пройти скользящими окнами по массиву сигналу и найти медиану для этого окна
+kernel_szie должен быть неченого размера
+"""
+def median_filter(signal, kernel_size=3):
+    if kernel_size % 2 == 0:
+        raise ValueError("Kernel size must be an odd number.")
+        
+    signal = np.asarray(signal)
+    n = len(signal)
+    
+    #1
+    pad_size = kernel_size // 2
+    
+    #2
+    padded_signal = np.pad(signal, pad_size, mode='constant', constant_values=0)
+    filtered_signal = np.zeros(n)
+    
+    #4
+    for i in range(n):
+        # текущее окно
+        window = padded_signal[i : i + kernel_size]
+        #медиана по окну
+        filtered_signal[i] = np.median(window)
+        
+    return filtered_signal
+
+"""
+Моя реализация PCA алгоритма
+"""
 
 """ 
 Алгоритм:
