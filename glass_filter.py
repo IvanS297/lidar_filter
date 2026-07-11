@@ -1,455 +1,386 @@
+import scan
 import numpy as np
-from PCA import pca
 import matplotlib.pyplot as plt
-from plot import *
-# https://pmc.ncbi.nlm.nih.gov/articles/PMC11314935/
+from algorithms import *
 
-class Point:
-    def __init__(self, x: float, y: float, intensivity: float = None, index: int = None, range: int = None, angle: int = None):
-        """Объект точки со скана лидара
-
-        Args:
-            x (float): x точки
-            y (float): y точки
-            intensivity (float, optional): Интенсивность, которая дана точке. Defaults to None.
-            index (int, optional): Индекс в массиве скана. Defaults to None.
-            range (int, optional): Значение дальности до объекта. Defaults to None.
-            angle (int, optional): Угол 0..359 скана лидара. Defaults to None.
-        """
-        self.x = x
-        self.y = y
-        self.intensivity = intensivity
-        self.index = index
-        self.range = range
-        self.deg_angle = angle
-
-    def set_coordinates(self, x: float, y: float):
-        """Изменить x y точки
-
-        Args:
-            x (float): новый x
-            y (float): новый y
-        """
-        self.x = x
-        self.y = y
-
-    def set_intensivity(self, intensivity: float):
-        """Изменить интенсивность точки
-
-        Args:
-            intensivity (float): новая интенсивность
-        """
-        self.intensivity = intensivity
-
-    def set_index(self, index: int):
-        """Поменять индекс точки
-
-        Args:
-            index (int): новый индекс в массиве скана
-        """
-        self.index = index
-
-    def set_range(self, range: int):
-        """Поменять дальность до объекта в мм
-
-        Args:
-            range (int): Новое расстояние в мм
-        """
-        self.range = range
-
-    def set_angle(self, angle: int):
-        """Изменить угол в градусах для данной точки
-
-        Args:
-            angle (int): угол от 0 до 359
-        """
-        self.deg_angle = angle
-
-
-class Surface:
-    def __init__(self, k: float, b: float, beams: list, p_start: Point, p_end: Point):
-        """Объект данных для хранения информации о поверхности, которая пердставляет собой в 2д пространстве простую прямую.
-        Поверхность существует только в пределах скана лидара (0-359 градусов). Под поверхностью подразумевается 2д срез 3д объекта, который
-        является стетлом, зеркалом ии другой отражающей поверхностью.
-
-        Args:
-            k (float): коэффициент k прямой поверхности
-            b (float): коэффициент b прямой поверхности
-            beams (list): массив лучей лидара, которые попадают в эту поверхность
-            p_start (Point): начало поверхности
-            p_end (Point): конец поверхности
-        """
-        self.k = k
-        self.b = b
-        self.beams = beams
-        self.p_start = p_start
-        self.p_end = p_end    
-    
-    def set_coeffs(self, k: float = None, b: float = None):
-        """Поменять коэффициенты b и k на новые
-
-        Args:
-            k (float, optional): новый коэффициент K. Defaults to None.
-            b (float, optional): новый коэффициент B. Defaults to None.
-        """
-        if k != None:
-            self.k = k
-        if b != None:
-            self.b = b
-        
-    def set_point(self, ps: Point = None, pe: Point = None):
-        """Поменять начало или конец пика
-
-        Args:
-            ps (Point, optional): Новый старт. Defaults to None.
-            pe (Point, optional): Новый конец. Defaults to None.
-        """
-        if ps != None:
-            self.p_start = ps
-        if pe != None:    
-            self.p_end = pe
-    
-    def set_beams(self, beams: list):
-        """Поменять массив лучей поверхности
-
-        Args:
-            beams (list): массив лучей
-        """
-        self.beams = beams
-    
-
-class Window:
-    def __init__(self, D1: Point, D2: Point, N: int, stdv: float = None):
-        self.d1 = D1
-        self.d2 = D2
-        self.n = N    
-        self.Uc = (D1.range - D2.range) / N
-        self.stdv = stdv
 
 class Beam:
-    def __init__(self, angle: int, range: float):
-        self.angle = angle
+    def __init__(self, range, index, intensiv):
         self.range = range
+        self.index = index
+        self.intensiv = intensiv
+
+class Point:
+    def __init__(self, x, y, index, range = None, intensiv = None):
+        self.x = x
+        self.y = y
+        self.index = index
+        self.range = range
+        self.beam = Beam(self.range, index, intensiv)
+
+class Window:
+    def __init__(self, s, e, cb, stdv = None, array = None):
+        self.s = s
+        self.e = e
+        self.stdv = stdv
+        self.cb = cb
+        self.array = array
+
+class PointCloud:
+    def __init__(self, points: list[Point]):
+        self.points = points
 
 class GlassFilter:
-    def __init__(self, max_cliff: int = 300):
-        """Фильтр, который выявляет куски скана, похожие на пик интенсивности. Эти пики интенсивности появляются из-за встречи луча лидара и стекла или зеркала.
-
-        Args:
-            max_cliff (int, optional): Максимальный разрыв по дальности между точками в мм. Defaults to 300.
-        """
-        self.max_cliff = max_cliff
-        self.sequence = []
-        self.coordinates = []
-
-    def scan_to_points(self, x: float, y: float, theta: float, scan: np.array) -> list:
-        """Находим координаты препятсвий по скану
-
-        Args:
-            x (float): x робота
-            y (float): y робота
-            theta (float): theta робота
-            scan (np.array): скан
-
-        Returns:
-            list: массив с массивами координат x y перпятсвий
-        """
+    def __init__(self):
+        pass
+    
+    def scan_to_points(self, x: float, y: float, theta: float, scan: list) -> list:
         coordinates = []  # [[x, y], [x1, y1]]
         for i in range(len(scan)):
             xo = x + scan[i] * np.cos(theta + np.deg2rad(i))
             yo = y + scan[i] * np.sin(theta + np.deg2rad(i))
             coordinates.append([xo, yo])
         return coordinates
-
-    def is_seq_is_valid(self, min_points: int, min_amp: int, x: float, y: float, max_chng: int) -> bool:
-        """Проверка, что sequence с point'ами вообще правильна, на основе ее физических свойств
+    
+    def stdv_filter(self, scan: list, intensiv: list, threshold: float, x: float, y: float, theta: float):
+        """Алгоритм 1: фильтр скана по скользящим окнам и STDV (СКО)
 
         Args:
-            min_points (int): минимальный размер sequence
-            min_amp (int): минимальная амплитуда скачков
+            scan (list): скан лидара
+            intensiv (intensiv): интенсивность скана
+            threshold (float): порог STDV после которого объект считается "стеклом"
             x (float): x робота
             y (float): y робота
-            max_chng (int): максимальное отколенене в дальности между точками и лидаром в мм
+            theta (float): theta робота
 
         Returns:
-            valid (bool): True если все 4 условия существования такой sequence верны, False - если хотя бы одно не выполнилось.
+            PCoG (list): облака точек, которые содержат точки "стекла"
         """
+        # концепция скользящего окна по скану от 5 элемента до len(конец)+5
+        coords = self.scan_to_points(x, y, theta, scan)
+        mbeams = []
+        invalids = []
+        for i in range(len(scan)):
+            if scan[i] <= 0:
+                invalids.append(i)
+        
+        # 5 точек до текущей точки, текущая точка и 5 точек после точки
+        
+        for i in range(5, len(scan)+5):
+            j = i%360 # я постоянно путался что скан то разрывается поле 359 элемента
+            count = 11 # пока что в окне все лучи нормальные
+            r = scan[j]
+            I = intensiv[j]
+            # концепция СКО (STDV). Ее надо посчитать по все окну
+            # [359, 0, 1, 2, 4, 5, 6, 7, 8, 9, 10] - это пример окна когда надо постороить правильный расчет
+            # если центральный луч с индексом < 5 или брльше 354, то надо выкручивать j до того чтобы он стал в переделах 0..359
+            # j=0, край j-5=-5, -5%360=-5-360*(-5//360)=355
+            start = (j-5)%360
+            end = (j+5)%360
+            # газ считать STDV
+            # тот массив свхеру с индексами, нужно нормализовать
+            dev = 360-start
+            inds = [(k-dev)%360 for k in range((start+dev)%360, (end+dev)%360)]
+            inds.sort()
+            for ind in inds.copy():
+                if ind in invalids:
+                    count-=1 # луч портит ско
+                    inds.remove(ind)
+            avg = sum([scan[k] for k in inds]) / count # сумма дальностей
+            stdv = np.sqrt(sum([(scan[k]-avg)**2 for k in inds]) / count)
+            if stdv > threshold: # если отклонение больше нормы, то окно надо пометить
+                mbeam = Beam(r, j, I)
+                mbeams.append(mbeam)
+        
+        # склейка лучей в обрывки
+        # нашелся еще один баг: склека склеивает только последовательные окна, а те которые черезз 2 и более индексов пропускает
+        candidates = []
+        s = e = 0
+        prev_ind = mbeams[0].index
+        pcs = []
+        for i in range(1, len(mbeams)):
+            ind = mbeams[i].index
+            #print(ind)
+            if ind - prev_ind == 1:
+                e = ind
+            else:
+                candidates.append([s, e])
+                s = ind
+                e = ind
+            prev_ind = ind
+        # доклейка кусков окон через 2-3 индекс в одно целое
+        clued_candidates = []
+        used_inds = []
+        for can in range(len(candidates)):
+            #print(candidates[can])
+            ps, pe = candidates[(can-1)%len(candidates)]
+            s, e = candidates[can]
+            #print(f"ps: {ps} pe: {pe} s: {s} e: {e}")
+            #print(f"(s-pe)%360: {(s-pe)%360}")
+            if (s-pe)%360 < 3:
+                #print(f"new: {ps} {e}")
+                clued_candidates.append([ps, e])
+                used_inds.append(s)
+                used_inds.append(e)
+                points = []
+                steps = (e - ps) % 360 + 1
 
+                for j in range(steps+1):
+                    i = (ps + j) % 360
+                    x = coords[i][0]
+                    y = coords[i][1]
+                    p = Point(x, y, i, scan[i], intensiv[i])
+                    points.append(p)
+                pc = PointCloud(points)
+                pcs.append(pc)
+            else:
+                if s in used_inds or e in used_inds or ps in used_inds or pe in used_inds:
+                    continue
+                clued_candidates.append([s, e])
+                points = []
+                for j in range(s, e+1):
+                    x = coords[j][0]
+                    y = coords[j][1]
+                    p = Point(x, y, j, scan[j], intensiv[j])
+                    points.append(p)
+                pc = PointCloud(points)
+                pcs.append(pc)
+
+        clued_candidates.sort(reverse=True)
+        print(f"new candidates: {clued_candidates}")
+        return pcs, invalids, clued_candidates
+    
+    def valid_filter(self, min_points: int, min_amp: float, x: float, y: float, max_chng: float, pc: PointCloud, window: int):
         """
         форма пика: интенсивность точек в sequence  должна сначала монотонно возрастать, а затем убывать
         минимальная ширина: т.к. пик интенсивности это практически всегда мусор, то длина последовательности должна быть маленькой
         амплитуда: разница между максимальной интенсивностью и минимальной должна быть больше заданного порога
         физическая непрерывность: расстояние между лидаром и точками sequene не должна резко меняться.
         """
-        # ширина
         # фильтруем сначала по ширине последовательности, потому что дальше есть функции, которые работают с итераторами в списках. МОжет быть IndexErro или какой-нибудь дргуой краш
-        len_valid = len(self.sequence) >= min_points
-        if not len_valid:
-            return False
+        #print(f"Последовательность: {pc.points[0].index} {pc.points[-1].index}")
+        # ширина
+        if len(pc.points) < min_points:
+            #print(f"len is invalid: {len(pc.points)}")
+            return False, None
+
+        # новый критерий: дропауты интенсивности
+        intesiv_scrap = [pc.points[i].beam.intensiv for i in range(len(pc.points))]
+        if not 0 in intesiv_scrap:
+            #print(f"no dropouts")
+            return False, None
 
         # амплитуда:
-        max_ind, i_max = max(enumerate(self.sequence[i].intensivity for i in range(len(self.sequence))), key=lambda x: x[1])
-        """
-        Есть такой неприятный баг: вершина может оказаться вообще на краю последовательности (индекс 0 или индекс len(sequence) - 1) и тогда логика ломается.
-        """
-        if not (0 < max_ind < len(self.sequence) - 1):
-            return False
-        i_edge = (self.sequence[0].intensivity + self.sequence[-1].intensivity) / 2
-        amp_valid = (i_max - i_edge) > min_amp
-        if not amp_valid:
-            return False
+        # медианный фильтр
+        median = median_filter(signal=intesiv_scrap, kernel_size=3)
+        dno_idx = np.argmin(np.where(median == 0, np.inf, median))
+        smoothed = np.convolve(median, np.ones(window)/window, mode='same') # сглаживание
+        # дно
+        dno = smoothed[dno_idx]
+        global_dno_idx = (pc.points[0].index + dno_idx)%360 
+        n = len(intesiv_scrap)
+        edge_size = max(2, int(n * 0.2)) # специальная защита: нельзя брать размер краев за 1 индекс, минимум 2
+        # нахождение диапозонов scrap'а, где надо найти максимумы
+        
+        sind = np.argmax(intesiv_scrap[:edge_size])
+        start_max = intesiv_scrap[sind]
+
+        local_send = np.argmax(intesiv_scrap[-edge_size:])
+        # Перевод во всеобщий (глобальный) индекс исходного массива
+        send = (n - edge_size) + local_send
+        end_max = intesiv_scrap[send]
+
+        amp = max(start_max, end_max) - dno
+        if amp < min_amp:
+            #print(f"amp is invalid: {amp}")
+            return False, None
 
         # непрерывность
         d = prevd = dd = 0
+        dds = []
         cont_valid = True
-        for i in range(0, len(self.sequence)):
-            point = self.sequence[i]
-            d = np.sqrt(np.pow(point.x - x, 2) + np.pow(point.y - y, 2))
+        for i in range(0, len(pc.points)):
+            point = pc.points[i]
+            d = np.sqrt((point.x - x)**2 + (point.y - y)**2)
             if i == 0:
                 prevd = d
                 continue
             dd = prevd - d
+            dds.append(dd)
             if dd > max_chng:
                 cont_valid = False
             prevd = d
+        #print(f"dds: {dds}")
         if not cont_valid:
-            return False
+            #print(f"contour is invalid: {dd}")
+            return False, None
 
         # возрастание и убывание
-        shape_valid = True
-        for i in range(1, max_ind + 1):
-            if self.sequence[i - 1].intensivity > self.sequence[i].intensivity:
-                shape_valid = False
-
-        for i in range(max_ind + 1, len(self.sequence)):
-            if self.sequence[i - 1].intensivity < self.sequence[i].intensivity:
-                shape_valid = False
-
-        if not shape_valid:
-            return False
-
-        return True
-
-    def find_potential_peaks(self, intensiv: list, scan: list) -> list[list[Point]]:
-        """Функция для нахождения потенциальных пиков и gap'ов из массива интенсивностей и массива измерений дальностей.
-        Сама фильтрует gap'ы по пикам интенсивности, выдавая только те, которые дествительно похожи на отражающие поверности.
-
-        Args:
-            intensiv (list): массив интенсивностей
-            scan (list): массив интенсивностей
-
-        Returns:
-            list[list[Point]]: отфильтрованный список пиков.
         """
-        potential_peaks = []
-        self.sequence = []  # последовательность, которая накапливается point'ами в процессе
-        prev_r = None
-        for r in range(len(scan)):
-            # дропаут (нулевая интенсивность или проще говоря мусор, разрыв графика)
-            if scan[r] <= 0:
-                if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
-                    potential_peaks.append(self.sequence)
-                self.sequence = []
-                prev_r = None
-                continue
-
-            # gap - это физический разрыв между точками скана (длина между ними). Проще говоря это евклидово расстояние между соседними точками
-            gap = abs(scan[r] - prev_r) if prev_r is not None else 0.0
-
-            if gap > self.max_cliff:  # разрыв дальности означает, что сегмент кончился
-                if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
-                    # сохранение последовательности точек (пик) в массив потенциальных пиков
-                    potential_peaks.append(self.sequence)
-                self.sequence = []
-            point = Point(x=self.coordinates[r][0], y=self.coordinates[r][1], intensivity=intensiv[r], index=r, range=scan[r], angle=r)
-            self.sequence.append(point)
-            prev_r = scan[r]
-
-        # последний кусок
-        if self.is_seq_is_valid(min_points=3, min_amp=3, x=0, y=0, max_chng=300):
-            potential_peaks.append(self.sequence)
-        return potential_peaks
+        На изображении intensivities_correlation.png видно, что стекло на самом деле находится в промежутке 357-8.
+        Можно увидеть, что образовался перевернутый конус из интенсивностей, до момента, когда, дальности не оказались на стекле. 
+        Но растет и падает она с переменным успехом, поэтому надо научиться детектить такой подъем
+        """
+        
+        dropped = (start_max - dno) > (amp * 0.3)
+        recovered = (end_max - dno) > (amp * 0.3)
+        # аоследовательность упала и выросла обратно (shape valid)
+        if dropped and recovered:
+            print(f"последовательность упала и выросла обратно, старт: {pc.points[0].index}, дно: {global_dno_idx}, конец: {pc.points[-1].index})")
+            return True, global_dno_idx
+        return False, None
     
-    def fitting(self, potential_peaks) -> list[Surface]:
-        """Функция, для фитинга прямой на кондидаты в отражающие поверхности. 
+    def fitting_filter(self, scan: list[float], inds: list[int]):
+        coordinates = self.scan_to_points(0, 0, 0, scan)
+        coords = []
+        coords.append([coordinates[inds[0]][0], coordinates[inds[0]][1]])
+        coords.append([coordinates[inds[1]][0], coordinates[inds[1]][1]])
+        coords.append([coordinates[inds[2]][0], coordinates[inds[2]][1]])
+        x_mean, k, b, var_ratio = pca(coords, num_components=2)
+        print(f"x mean: {x_mean} k: {k} b: {b}")
+        if var_ratio >= 0.87:
+            print(f"Normal variance ratio: {var_ratio}")
+        else:
+            print(f"Bad variance ratio: {var_ratio}")
+        
+        return x_mean, k, b, coords, var_ratio
+        
 
-        Args:
-            potential_peaks (list): потенциальные пики
-
-        Returns:
-            list[Surface]: массив поверхнстей
-        """
-        
-        """
-        Смысл в том, что эти potential_peaks и массивы с точками, которые показались алгоритму точками отражающей поверхности.
-        Идея вот в чем: эти точки находятся рядом друг с дргуом. Лидар 2d пространства. Значит, чтобызадетектить в этих массивах зеркало или стекло, нужно проверить эти точки
-        через уравнение прямой y = kx+b или ax+by+c=0. Если они "фитятся", то мы опнимаем, что это отражающая поверхность.
-        В 3д пространстве зеркало и стекло - это большие поверхности (куски), а в 2д пространстве это прямая (срез 3д пространства).
-        Но прямая бесконечная, а отражающая поверность - нет. поэтому надо было создать отдельный объект для поверхности.
-        """
-        
-        surfaces = []
-        for peak in potential_peaks:
-            xs = np.array([p.x for p in peak]) # x точки пика
-            ys = np.array([p.y for p in peak]) # y точки пика
-            #k, b = np.polyfit(x=xs, y=ys, deg=1) # пытаемся получить k, b из уравнения y = kx+b
-            # PCA вместо np.polyfit (в gitlog.txt написал почему)
-            points = np.column_stack((xs, ys))
-            _, _, _, _, k, b = pca(x=points, num_components=1, return_kb=True)
-            start = Point(x=peak[0].x, y=peak[0].y) # Точка начала поверхности
-            end = Point(x=peak[-1].x, y=peak[-1].y) # Точка конца поверхности
-            beams = [p.index for p in peak] # какие лучи в него попали (индексы лучей)
-            surface = Surface(k=k, b=b, p_start=start, p_end=end, beams=beams)
-            surfaces.append(surface)
-        
-        return surfaces
+    def accum_scans(self, scans, x: float, y: float, theta: float):
+        voices = [0]*len(scans[0])
+        truth = [0]*len(scans[0])
+        for sc in scans:
+            pcs, _ = self.stdv_filter(sc, 175, x, y, theta)
+            for pc in pcs:
+                for p in pc.points:
+                    voices[p.index] += 1
+        # ответ: где стоит стекло
+        for i in range(len(scans[0])):
+            truth[i] = voices[i] >= np.floor(len(scans) * 0.5)
+            # стекло там где количество подтвержденных ответов стекло тут или нет превысило 50% от количества сканов
+        return truth 
     
-    def find_real_trash(self, surfaces: list[Surface], scan: list[float], thresh: int = 35):
-        """
-        Функция берет каждый луч и смотрит, как луч идет до поверхности:
-        1. Точка от луча оказалась перед стеклом?
-        2. Точка на стекле?
-        3. Точка за стеклом?
-        
-        Args:
-            surfaces (list[Surface]): отражащие поверхности
-            scan (list[float]): скан лидара
-            thresh (int): сколько мм по обе стороны от зеркала считать той точкой, которая "лежит на зеркале"
+    def patch(self, pcog, scan):
+        # нашелся один баг: замазка работает плохо, поэтому надо взять раму и замазать ей не только коно, но еще и по одной точке перед и после него
+        new_scan = scan.copy()
+        occupied = [0]*len(new_scan)
+        for pc in pcog:
+            s, e = pc.points[0].index, pc.points[-1].index
+            win_frame_left = 0
+            ind = (s - 1)%360
+            vars = []
+            while new_scan[s] > win_frame_left:
+                win_frame_left = new_scan[ind]
+                vars.append(new_scan[ind])
+                if (s - ind) % 360 > 12:
+                    win_frame_left = max(vars)
+                    break
+                ind = (ind - 1) % 360
+            win_frame_right = 0
+            ind = (e + 1)%360
+            #print(f"vars left: {vars}")
+            vars = []
+            while scan[e] > win_frame_right:
+                win_frame_right = new_scan[ind]
+                vars.append(new_scan[ind])
+                if (ind - e) % 360 > 12:
+                    win_frame_right = max(vars)
+                    break
+                ind = (ind + 1) % 360
+            #print(f"vars right: {vars}")
+            #frame = win_frame_left if win_frame_right > win_frame_left else win_frame_right
+            frame = (win_frame_left + win_frame_right) / 2 # так работает намного лучше
+            steps = (e - s) % 360 + 1
+            #print(f"lframe: {win_frame_left} r_frame: {win_frame_right} s: {s} e: {e} points count: {steps}")
+            #я добавил замазку по проямой а не по радиусу
+            alpha = np.deg2rad(s + len(pc.points)//2) #это получается серединка облака
+            theta = np.deg2rad(np.arange(s, s + steps))
+            r = frame / np.cos(theta - alpha)
 
-        Returns:
-            list[int]: Массив с индексами дальностей, которые стали мусорными.
-        """
-        
-        """
-        Описание геометрии.
-        Луч номер i - это направление под углом theta_i. Точка вида (t*cos(theta_i); t*sin(theta_i)), где t >= 0 - расстояние вдоль луча (range).
-        Стекло: Прямая в общей форме ax+by+c=0. У нее есть границы - отрезок начиная с p_start и заканчивая p_end.
-        Пересечение: Надо решить уравнение, подставив точку луча в уравнение прямой. Решать надо относительно t:
-        t = -c / (a*cos(theta_i) + b*sin(theta_i))
-        Три варианта ответа при решении относительно t:
-        1. если знаменатель ~= 0, то луч параллелен стеклу и не пересекает его.
-        2. если t <= 0, то пересечение позади лидара, его не вопринимаем.
-        3. иначе: точка пересечения = (t*cos(theta_i); t*sin(theta_i)). Надо проверить, что она лежит между p_start и p_end (действиельная точка, а не мнимая - точка на воображаемом продолжении прямой).
-        Если нет - этот луч мимо стекла, не вопринимаем
-        
-        Если r ~= t, то луч утолкнулся в само стекло
-        Если r > t, то луч прошел за стекло (может быть даже на сквозь), лиюо отразился. Это и есть мусор, который надо будет замять.
-        Если r < t, то точка перед стеклом, обычное, препятствие. Точка в норме, не вопринимаем
-        """
-        new_scan = list(scan)                 # КОПИЯ, не ссылка
-        occupied = [False] * len(scan)
-        trash = []
-        for i in range(len(scan)):            # лучи снаружи
-            if scan[i] <= 0:
-                continue
-            theta = np.deg2rad(i)
-            dx, dy = np.cos(theta), np.sin(theta)
-            best_t = None                     # своё для КАЖДОГО луча
-            for surface in surfaces:
-                a, b0, c = surface.k, -1.0, surface.b
-                x1, y1 = surface.p_start.x, surface.p_start.y
-                x2, y2 = surface.p_end.x,   surface.p_end.y
-                den = a * dx + b0 * dy
-                if abs(den) < 1e-9:           # abs! иначе теряешь отрицательные
-                    continue
-                t = -c / den
-                if t <= 0:
-                    continue
-                ix, iy = t * dx, t * dy
-                Lx, Ly = x2 - x1, y2 - y1
-                s = ((ix - x1) * Lx + (iy - y1) * Ly) / (Lx * Lx + Ly * Ly)
-                if not (0.0 <= s <= 1.0):
-                    continue
-                if scan[i] - t >= thresh:              # луч за стеклом
-                    if best_t is None or t < best_t:   # ближайшее стекло ДЛЯ ЭТОГО луча
-                        best_t = t
-            if best_t is not None:
-                new_scan[i] = best_t
-                occupied[i] = True
-                trash.append(i)
-        return new_scan, trash, occupied
+            for step in range(steps):
+                p = (s + step) % 360
+                new_scan[p] = r[step]
+                occupied[p] = 1
+        return new_scan, occupied
     
-    def classify_pc(self, scan: list[float], intesiv: list[float], threshold: float):
-        """
-         - скользящее окно размером 11 точек (5 точек до текущей точки и 5 точек после)
-         - для каждого окна надо высчитать STDV дальностей
-         - если STDV > `Threshold`, то точки надо пометить как кондидаты в PCoG
-         - иначе пометить как кондидаты в PCoO
+gf = GlassFilter()
+pcs, invalids, candidates = gf.stdv_filter(scan.scan, scan.intesivities, 175, 0, 0, 0)
+angles = [a for a in range(0, 360)]
+founded_inds = []
+window = 15
+pca_data = []
 
-        Args:
-            scan (list[float]): скан лидара
-            intesiv (list[float]): интенсивности
-            threshold (float): порог для sdtv, чтобы понять, что это PCoG или PCoO
+for pc in pcs.copy():
+    valid, dno_idx = gf.valid_filter(20, 2, 0, 0, 10000, pc, window)
+    if not valid:
+        pcs.remove(pc)
+        continue
+    start = pc.points[0].index
+    end = pc.points[-1].index
+    _, k, b, coords, var_ratio = gf.fitting_filter(scan.scan, [start, dno_idx, end])
+    print(f"Fitting: {k} {b} {coords} {var_ratio}")
+    if var_ratio < 0.87:
+        pcs.remove(pc)
+        continue
+    for p in pc.points:
+        pca_data.append([k, b, coords, var_ratio, [start, dno_idx, end]])
+        founded_inds.append(p.index)
 
-        Returns:
-            pcoo (list[Window]): массив окон объектов
-            pcog (list[Window]): массив окон стекол
-            stdvs (list[float]): массив стандартных отклонений
-        """
+sc, oc = gf.patch(pcs, scan.scan)
+# inds = gf.accum_scans([scan.scan, scan.scan1, scan.scan2], 0, 0, 0)
+smoothed = np.convolve(scan.intesivities, np.ones(window)/window, mode='same')
+fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(9, 9))
+ax.set_theta_zero_location('N')
+ax.set_theta_direction(-1)
+ax.scatter(np.radians(angles), sc, color='blue', s=15, label='замеры')
+ax.scatter(np.radians(angles), smoothed * 20, color="purple", s=5, label="интенсивности")
+ax.scatter(0, 0, color='red', s=120, marker='*', label='лидар')
+founded_angles = np.radians(np.array(angles)[founded_inds])
+founded_dists = np.array(sc)[founded_inds]
+
+label = False
+for data in pca_data:
+    k, b, coords, var_ratio, inds = data
+    seg_points = None
+    for item in data:
+        if isinstance(item, (list, np.ndarray)) and len(np.shape(item)) == 2:
+            seg_points = np.asarray(item)
+            break
+            
+    if seg_points is None:
+        seg_angles = sc[inds]
+        seg_distances = sc[inds]
+        seg_points = np.column_stack((seg_distances * np.cos(seg_angles), seg_distances * np.sin(seg_angles)))
+
+    mean_x = np.mean(seg_points[:, 0])
+    mean_y = np.mean(seg_points[:, 1])
+    k = data[0] if isinstance(data[0], (int, float)) and not isinstance(data[0], bool) else data[1]
+
+    if np.isinf(k) or k == float('inf') or np.isnan(k):
+        y_line = np.linspace(min(seg_points[:, 1]) - 0.5, max(seg_points[:, 1]) + 0.5, 100)
+        x_line = np.full_like(y_line, mean_x) 
+    else:
+        x_line = np.linspace(min(seg_points[:, 0]) - 0.5, max(seg_points[:, 0]) + 0.5, 100)
+        b_safe = mean_y - k * mean_x
+        y_line = k * x_line + b_safe
+
+    to_polar = lambda x, y: (np.arctan2(y, x), np.sqrt(x**2 + y**2))
+    theta_pts, r_pts = to_polar(seg_points[:, 0], seg_points[:, 1])
+    theta_mean, r_mean = to_polar(mean_x, mean_y)
+    theta_line, r_line = to_polar(x_line, y_line)
+
+    if not label:
+        ax.scatter(theta_pts, r_pts, color='red', s=25, zorder=5, label="точки для фитинга")
+        ax.plot(theta_line, r_line, linestyle='--', linewidth=2, label="линия ")
+        label = True
+    else: 
+        ax.scatter(theta_pts, r_pts, color='red', s=25, zorder=5)
+        ax.plot(theta_line, r_line, linestyle='--', linewidth=2)
         
-        pcoo = []
-        pcog = []
-        windows = []
-        stdvs = []
-        for i in range(5, len(scan)):
-            if i > 354:
-                D1 = Point(x=self.coordinates[(i-5)%360][0], y=self.coordinates[(i-5)%360][1], index=(i-5)%360, intensivity=intesiv[(i-5)%360], range=scan[(i-5)%360], angle=[(i-5)%360])
-                D2 = Point(x=self.coordinates[(i+5)%360][0], y=self.coordinates[(i+5)%360][1], index=(i+5)%360, intensivity=intesiv[(i+5)%360], range=scan[(i+5)%360], angle=[(i+5)%360])
-            else:
-                D1 = Point(x=self.coordinates[i-5][0], y=self.coordinates[i-5][1], intensivity=intesiv[i-5], index=i-5, range=scan[i-5], angle=i-5)
-                D2 = Point(x=self.coordinates[i+5][0], y=self.coordinates[i+5][1], intensivity=intesiv[i+5], index=i+5, range=scan[i+5], angle=i+5)
-            N = 11
-            window = Window(D1=D1, D2=D2, N=N)
-            windows.append(window)
-            print(f"Start: {(i-5)%360} Center: {i} End: {(i+5)%360} Uc: {window.Uc}")
-        for window in windows:
-            u = 0
-            for i in range(window.d1.index, window.d2.index + 1):
-                u += scan[i]
-            u /= window.n
-            stdv = 0
-            avg = 0
-            for Lr in range(window.d1.index, window.d2.index + 1):
-                if scan[Lr] > 0:
-                    avg += np.pow(scan[Lr] - u, 2)
-            avg /= window.n
-            stdv = np.sqrt(avg)
-            stdvs.append(stdv)
-            window.stdv = stdv
-            if stdv > threshold:
-                pcog.append(window)
-            else:
-                pcoo.append(window)
-        return pcoo, pcog, stdvs
-    
-    def check_mirrors(self, frags, scan, intensiv):
-        mirrors = []
-        for s, e in list(frags):
-            # кусок от s-5 до e+5
-            mirror_start = None
-            mirror_end = None
-            for i in range(s-5, s+1):
-                if scan[np.abs(i%360)] - scan[np.abs((i-1)%360)] >= 225 and intensiv[np.abs(i%360)] < intensiv[np.abs((i-1)%360)]:
-                    mirror_start = i
-            for i in range(e, e+5):
-                if scan[np.abs(i%360)] - scan[np.abs((i+1)%360)] >= 225 and intensiv[np.abs(i%360)] < intensiv[np.abs((i+1)%360)]:
-                    mirror_end = i
-            if mirror_end is None and mirror_start is None:
-                d1 = Point(x=self.coordinates[mirror_start][0], y=self.coordinates[mirror_start][1], intensivity=intensiv[mirror_start], index=mirror_start, range=scan[mirror_start], angle=mirror_start)
-                d2 = Point(x=self.coordinates[mirror_end][0], y=self.coordinates[mirror_end][1], intensivity=intensiv[mirror_end], index=mirror_end, range=scan[mirror_end], angle=mirror_end)
-                mirror = Window(D1=d1, D2=d2, N=np.abs(mirror_end-mirror_start))
-                mirrors.append(mirror)
-        return mirrors
 
-scan = np.array([2793.0, 1857.0, 0.0, 0.0, 1438.5, 1395.0, 1375.75, 1337.5, 1336.0, 964.0, 963.5, 967.0, 971.0, 977.0, 1005.0, 1010.5, 966.0, 930.5, 917.0, 889.0, 861.0, 849.0, 826.0, 824.5, 833.5, 842.5, 853.0, 873.5, 879.0, 890.25, 898.0, 912.25, 926.0, 926.0, 0.0, 0.0, 420.5, 393.5, 382.5, 363.0, 354.75, 341.5, 331.5, 324.5, 313.75, 310.25, 300.0, 293.25, 290.0, 286.0, 280.0, 273.5, 271.0, 269.0, 265.75, 261.5, 259.5, 256.0, 252.25, 249.75, 247.75, 247.5, 243.25, 242.0, 238.75, 238.5, 236.0, 233.0, 232.5, 232.0, 232.5, 228.5, 227.25, 227.0, 224.5, 225.5, 224.5, 223.25, 221.5, 222.5, 223.75, 222.25, 221.5, 223.0, 224.0, 225.0, 226.25, 227.0, 226.0, 227.5, 229.5, 230.25, 233.5, 234.5, 235.25, 239.0, 240.5, 241.25, 243.5, 245.0, 249.5, 251.5, 254.5, 257.0, 262.75, 265.75, 271.5, 275.0, 282.0, 286.25, 294.0, 300.5, 314.0, 330.0, 338.5, 360.0, 0.0, 265.0, 258.0, 243.5, 240.75, 208.5, 205.0, 201.5, 200.5, 199.75, 201.25, 200.5, 202.5, 205.0, 207.75, 209.75, 213.75, 216.0, 215.0, 0.0, 146.5, 0.0, 139.75, 0.0, 137.5, 133.5, 132.75, 131.5, 135.0, 137.5, 139.5, 141.0, 142.5, 148.5, 0.0, 195.25, 207.25, 210.5, 213.75, 214.0, 213.5, 212.0, 212.0, 210.75, 210.25, 212.5, 212.5, 211.0, 212.25, 215.5, 214.5, 213.75, 217.0, 218.75, 219.0, 218.5, 223.0, 218.5, 218.25, 216.5, 221.0, 222.0, 220.5, 222.5, 222.0, 220.75, 219.75, 220.0, 219.5, 218.0, 218.0, 217.5, 217.5, 219.0, 219.0, 219.5, 220.5, 218.0, 219.5, 222.5, 224.5, 227.0, 227.5, 232.0, 232.5, 237.5, 237.0, 239.5, 238.0, 237.0, 242.0, 241.0, 244.25, 243.25, 247.0, 248.75, 252.5, 254.0, 260.0, 263.0, 266.5, 275.5, 277.5, 282.0, 283.25, 284.0, 285.0, 292.5, 288.25, 0.0, 183.75, 177.0, 174.5, 168.5, 167.5, 171.5, 177.5, 179.5, 181.75, 181.25, 0.0, 0.0, 436.0, 0.0, 382.5, 376.5, 366.25, 363.75, 357.5, 356.0, 351.75, 351.75, 351.25, 351.25, 350.5, 352.0, 351.25, 353.0, 353.75, 356.0, 358.5, 361.5, 363.0, 367.0, 374.0, 376.0, 384.75, 390.5, 394.0, 401.75, 412.5, 418.5, 431.5, 437.0, 451.5, 456.5, 468.75, 476.25, 488.5, 494.0, 503.5, 511.0, 519.0, 524.0, 532.5, 536.25, 540.0, 550.0, 555.0, 561.5, 565.0, 571.0, 575.5, 580.25, 584.0, 589.0, 591.0, 599.5, 603.0, 607.5, 611.5, 612.75, 614.5, 619.75, 619.75, 620.75, 621.5, 623.25, 624.0, 619.5, 619.5, 616.0, 615.0, 610.5, 608.5, 605.5, 602.0, 598.0, 591.5, 589.0, 584.5, 582.5, 581.0, 578.5, 580.5, 580.25, 580.25, 583.5, 589.0, 592.5, 603.0, 608.5, 622.0, 634.5, 0.0, 794.5, 811.0, 838.5, 855.0, 892.0, 911.75, 954.0, 983.5, 999.5, 958.75, 958.0, 952.5, 951.5, 951.0, 0.0, 1238.75, 1266.5, 2073.5, 2071.5, 2067.25, 0.0, 974.0, 967.75, 959.0, 959.0, 961.5, 0.0, 977.0, 2782.5])
-intesivities = np.array([9, 9, 0.0, 0.0, 15, 16, 15, 19, 10, 46, 46, 46, 47, 47, 50, 51, 45, 44, 44, 45, 45, 45, 46, 48, 48, 47, 46, 47, 47, 47, 46, 45, 46, 38, 0.0, 0.0, 41, 44, 44, 47, 47, 47, 48, 48, 46, 46, 46, 47, 46, 46, 45, 47, 47, 48, 48, 49, 49, 49, 50, 50, 51, 51, 52, 52, 52, 52, 52, 51, 50, 52, 50, 50, 50, 52, 52, 52, 51, 50, 52, 52, 50, 50, 50, 52, 52, 52, 51, 51, 52, 52, 51, 52, 53, 52, 52, 53, 52, 52, 51, 51, 50, 49, 48, 48, 48, 48, 48, 46, 47, 46, 46, 47, 45, 44, 44, 41, 0.0, 49, 48, 50, 49, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52, 52, 51, 51, 53, 0.0, 50, 0.0, 51, 0.0, 50, 50, 51, 50, 49, 48, 48, 47, 46, 37, 0.0, 49, 51, 52, 53, 53, 53, 53, 53, 53, 53, 52, 52, 53, 52, 52, 52, 52, 52, 52, 53, 54, 54, 53, 52, 52, 51, 44, 49, 53, 54, 53, 53, 53, 52, 52, 52, 53, 52, 51, 53, 51, 53, 51, 51, 52, 51, 51, 50, 51, 50, 51, 53, 52, 51, 52, 51, 51, 51, 51, 50, 50, 50, 50, 50, 49, 48, 52, 52, 51, 51, 50, 50, 49, 45, 0.0, 51, 52, 52, 53, 52, 52, 51, 50, 43, 29, 0.0, 0.0, 43, 0.0, 48, 49, 49, 50, 51, 51, 51, 52, 52, 52, 52, 52, 51, 51, 50, 50, 49, 49, 50, 49, 51, 49, 48, 49, 48, 50, 49, 48, 47, 47, 49, 46, 46, 47, 48, 49, 47, 48, 47, 49, 47, 49, 47, 49, 49, 49, 50, 48, 50, 48, 48, 48, 47, 48, 50, 50, 48, 48, 48, 49, 48, 48, 49, 49, 49, 49, 49, 49, 48, 47, 48, 49, 49, 48, 49, 48, 48, 47, 47, 47, 48, 48, 49, 48, 48, 49, 48, 48, 48, 45, 0.0, 45, 44, 42, 42, 43, 43, 43, 50, 51, 47, 47, 46, 47, 45, 0.0, 20, 14, 15, 16, 10, 0.0, 15, 18, 22, 23, 19, 0.0, 8, 8])
-angles = np.array([i for i in range(0, 360)])
-glass_filter = GlassFilter(300)
-glass_filter.coordinates = glass_filter.scan_to_points(0, 0, 0, scan)
-pcoo, pcog, stdvs = glass_filter.classify_pc(scan, intesivities, 175)
-sigma = [None]*len(scan)
-for k, s in enumerate(stdvs):
-    sigma[5+k] = s
-frags = plot_fragments(scan, sigma, thr=175)          # уже склеенные куски
-frags_after = glass_filter.check_mirros(frags, scan, intesivities)   # Фильтр 2
-plot_filter2(scan, list(frags), frags_after)
+ax.scatter(invalids, [100] * len(invalids), color="red", s=2, marker="o", label='дропауты, выдвеннутые вперед')
+ax.scatter(founded_angles, founded_dists, color="green", s=12, marker="o", label='стекла')
+plt.title("карта комнаты", pad=20, fontsize=14)
+plt.legend(loc='lower right')
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.show()

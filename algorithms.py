@@ -52,7 +52,7 @@ def median_filter(signal, kernel_size=3):
 6. спроецировать отцентрированные данные на новые главные компоненты
 """
 
-def pca(x: np.array, num_components: int, return_kb: bool = False):
+def pca(x: np.array, num_components: int):
     """Реализация метода главных компонент (PCA)
 
     Args:
@@ -81,40 +81,45 @@ def pca(x: np.array, num_components: int, return_kb: bool = False):
     
     #6
     x_reduced = np.dot(x_cent, eigenvec_subset)
-    if not return_kb:
-        return x_reduced, sorted_eigenvals, sorted_eigenvecs, x_mean
     pc1 = sorted_eigenvecs[:, 0]
     v_x, v_y = pc1[0], pc1[1]
-    k = v_y / v_x
-    mean_x, mean_y = x_mean[0], x_mean[1]
-    b = mean_y - k * mean_x
-    return x_reduced, sorted_eigenvals, sorted_eigenvecs, x_mean, k, b
+    
+    # Защита от деления на ноль для вертикальных линий
+    if np.isclose(v_x, 0):
+        k = float('inf')
+        b = float('nan')
+    else:
+        k = v_y / v_x
+        mean_x, mean_y = x_mean[0], x_mean[1]
+        b = mean_y - k * mean_x
+
+    """
+    Попытка понять: можно ли вписать сюда прямую нормально, нужно посмотреть на значение дисперсии
+    Eigen-based features, Geometric features, Linearity metric, Anisotropy - названия данной формулы рассчета
+    """
+    l1 = sorted_eigenvals[0]
+    l2 = sorted_eigenvals[1]
+    var_ratio = l1 / (l1 + l2) if (l1 + l2) > 0 else 0 # отношение дисперсий
+    # смысл в том, что если это отношение дисперсий меньше 0.85, то это почти всегда мусор
+    return x_mean, k, b, var_ratio
 
 
 def visualize(points):
-    #1
-    _, _, sorted_eigenvecs, x_mean = pca(points, num_components=1, return_kb=False)
-    #2
-    pc1 = sorted_eigenvecs[:, 0]
-    v_x, v_y = pc1[0], pc1[1]
-    # 3
-    k = v_y / v_x
-    mean_x, mean_y = x_mean[0], x_mean[1]
-    b = mean_y - k * mean_x
-    print(f"Уравнение прямой: y = {k:.4f} * x + ({b:.4f})")
 
-    plt.scatter(points[:, 0], points[:, 1], color='red', zorder=5, label='Исходные точки')
+    x_mean, k, b, var_ratio = pca(points, 2)
+    
+    print(f"y = {k:.4f}*x + ({b:.4f}) | Линейность: {var_ratio:.2f}")
+
+
+    plt.scatter(points[:, 0], points[:, 1], color='red', zorder=5, label='Точки')
+    plt.scatter(x_mean[0], x_mean[1], color='green', marker='X', s=150, zorder=6, label='Центр масс')
+    
     x_line = np.linspace(min(points[:, 0]) - 0.5, max(points[:, 0]) + 0.5, 100)
-    y_line = k * x_line + b
-    plt.plot(x_line, y_line, color='blue', linestyle='--', linewidth=2, label=f'PCA линия (y = {k:.2f}x + {b:.2f})')
-    plt.scatter(mean_x, mean_y, color='green', marker='X', s=150, zorder=6, label='Центр масс (mean)')
-    plt.title('PCA', fontsize=12)
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.grid(True, linestyle=':', alpha=0.6)
-    plt.legend()
-    plt.axis('equal')
-    plt.show()
+    plt.plot(x_line, k * x_line + b, color='blue', linestyle='--', label='PCA линия')
+    
+    plt.title(f'PCA (Линейность: {var_ratio:.2f})')
+    plt.axis('equal'); plt.grid(True, linestyle=':'); plt.legend(); plt.show()
+
 
 if __name__ == "__main__":
     points = np.array([
