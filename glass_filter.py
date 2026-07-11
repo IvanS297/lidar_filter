@@ -1,4 +1,3 @@
-import scan
 import numpy as np
 import matplotlib.pyplot as plt
 from algorithms import *
@@ -266,45 +265,49 @@ class GlassFilter:
         occupied = [0]*len(new_scan)
         for pc in pcog:
             s, e = pc.points[0].index, pc.points[-1].index
-            win_frame_left = 0
-            ind = (s - 1)%360
-            vars = []
-            while new_scan[s] > win_frame_left:
-                win_frame_left = new_scan[ind]
-                vars.append(new_scan[ind])
-                if (s - ind) % 360 > 12:
-                    win_frame_left = max(vars)
-                    break
-                ind = (ind - 1) % 360
-            win_frame_right = 0
-            ind = (e + 1)%360
-            #print(f"vars left: {vars}")
-            vars = []
-            while scan[e] > win_frame_right:
-                win_frame_right = new_scan[ind]
-                vars.append(new_scan[ind])
-                if (ind - e) % 360 > 12:
-                    win_frame_right = max(vars)
-                    break
-                ind = (ind + 1) % 360
-            #print(f"vars right: {vars}")
-            #frame = win_frame_left if win_frame_right > win_frame_left else win_frame_right
-            frame = (win_frame_left + win_frame_right) / 2 # так работает намного лучше
-            steps = (e - s) % 360 + 1
-            #print(f"lframe: {win_frame_left} r_frame: {win_frame_right} s: {s} e: {e} points count: {steps}")
-            #я добавил замазку по проямой а не по радиусу
-            alpha = np.deg2rad(s + len(pc.points)//2) #это получается серединка облака
-            theta = np.deg2rad(np.arange(s, s + steps))
-            r = frame / np.cos(theta - alpha)
+            # win_frame_left = 0
+            # ind = (s - 1)%360
+            # vars = []
+            # while new_scan[s] > win_frame_left:
+            #     win_frame_left = new_scan[ind]
+            #     vars.append(new_scan[ind])
+            #     if (s - ind) % 360 > 12:
+            #         win_frame_left = max(vars)
+            #         break
+            #     ind = (ind - 1) % 360
+            # win_frame_right = 0
+            # ind = (e + 1)%360
+            # #print(f"vars left: {vars}")
+            # vars = []
+            # while scan[e] > win_frame_right:
+            #     win_frame_right = new_scan[ind]
+            #     vars.append(new_scan[ind])
+            #     if (ind - e) % 360 > 12:
+            #         win_frame_right = max(vars)
+            #         break
+            #     ind = (ind + 1) % 360
 
-            for step in range(steps):
-                p = (s + step) % 360
-                new_scan[p] = r[step]
-                occupied[p] = 1
+            
+            if e >= s:
+                num_elements = e - s + 1
+            else:
+                # Переход через ноль (например, от 337 до 8 при длине 360)
+                num_elements = (len(pc.points) - s) + (e + 1)
+            indices = np.array([(s + i) % len(pc.points) for i in range(len(new_scan))])
+            theta = np.radians(indices)
+            denominator = np.sin(theta) - k * np.cos(theta)
+            r = b / denominator
+            r_correct = np.abs(r)
+            
+            for i in range(num_elements):
+                idx = indices[i]
+                new_scan[idx] = r_correct[i]
         return new_scan, occupied
-    
+
+scan = np.array([822.5, 823.25, 826.5, 828.5, 829.5, 830.75, 831.25, 836.0, 842.5, 842.0, 848.0, 850.0, 851.0, 858.5, 862.0, 868.75, 874.0, 882.0, 888.0, 893.0, 898.5, 903.5, 916.0, 923.0, 928.75, 936.25, 949.5, 954.5, 965.75, 976.75, 982.5, 998.0, 1006.0, 1025.0, 1038.5, 1051.5, 1070.75, 1081.5, 1102.25, 1125.5, 1137.5, 1162.25, 1191.0, 1204.5, 1232.5, 1247.0, 1278.75, 1296.0, 1331.25, 1371.75, 1392.5, 1436.0, 1458.0, 1504.5, 1558.25, 1584.75, 1643.5, 1707.5, 1743.5, 1822.0, 1863.5, 1952.75, 2050.5, 2107.0, 2221.0, 2282.5, 2420.0, 2578.0, 0.0, 0.0, 0.0, 3141.75, 0.0, 2900.5, 2937.5, 0.0, 2335.25, 2298.5, 2299.0, 2318.0, 354.25, 354.0, 354.25, 357.0, 362.0, 373.0, 379.0, 386.0, 378.5, 370.5, 371.75, 374.0, 377.5, 381.5, 384.5, 384.75, 385.0, 386.75, 390.75, 393.25, 402.0, 0.0, 370.5, 367.0, 364.5, 361.5, 360.0, 360.5, 361.0, 365.25, 378.0, 0.0, 410.5, 414.0, 417.5, 429.0, 436.0, 450.5, 456.0, 456.0, 458.75, 469.5, 479.0, 496.0, 498.5, 490.5, 492.0, 494.0, 500.25, 504.75, 513.5, 519.25, 515.0, 521.5, 523.0, 523.5, 522.25, 523.0, 524.75, 528.25, 533.5, 536.5, 545.5, 552.25, 560.25, 642.0, 0.0, 698.25, 711.75, 743.0, 783.5, 0.0, 885.0, 941.5, 958.5, 964.5, 972.25, 0.0, 1205.0, 0.0, 1335.5, 1357.0, 0.0, 1782.0, 1827.5, 1807.5, 1805.5, 1792.5, 1803.0, 1871.5, 1895.0, 1901.25, 1901.75, 1913.5, 0.0, 1719.5, 1693.0, 1671.5, 1598.0, 0.0, 1462.5, 0.0, 1356.75, 1336.75, 1317.25, 1298.25, 1290.5, 1261.25, 1243.5, 1151.0, 1140.5, 1138.0, 1070.5, 991.0, 0.0, 794.0, 789.5, 781.5, 774.0, 687.25, 0.0, 563.5, 568.0, 568.5, 574.0, 578.0, 582.0, 586.5, 600.0, 604.5, 612.5, 622.25, 623.5, 629.5, 630.5, 627.25, 628.0, 631.5, 633.5, 633.25, 633.25, 634.0, 631.5, 630.5, 635.5, 638.5, 647.5, 652.5, 907.0, 921.5, 946.5, 960.25, 929.5, 911.0, 903.25, 892.5, 886.0, 876.25, 871.5, 862.0, 857.5, 845.5, 840.25, 833.0, 829.0, 822.75, 819.25, 814.0, 808.0, 805.0, 797.25, 796.0, 792.25, 789.25, 787.5, 786.5, 781.25, 780.25, 780.5, 779.0, 779.0, 776.5, 777.5, 780.5, 780.0, 778.0, 779.25, 778.5, 778.0, 777.75, 779.75, 798.0, 790.5, 0.0, 0.0, 0.0, 617.5, 586.25, 579.75, 585.75, 589.75, 593.5, 0.0, 556.75, 581.0, 607.0, 609.5, 0.0, 545.25, 0.0, 475.25, 452.5, 441.25, 436.5, 426.5, 422.0, 413.5, 410.0, 399.5, 396.0, 388.75, 384.25, 380.0, 373.5, 362.25, 0.0, 322.25, 319.0, 317.5, 316.0, 316.5, 315.5, 317.75, 319.0, 322.0, 325.5, 333.5, 335.0, 343.0, 344.5, 351.75, 355.25, 0.0, 0.0, 0.0, 345.75, 340.25, 342.0, 343.5, 347.75, 358.75, 0.0, 0.0, 429.25, 444.0, 450.5, 462.25, 0.0, 542.0, 541.5, 541.25, 541.75, 552.25, 0.0, 600.75, 609.5, 603.5, 576.5, 577.5, 818.5, 829.25, 826.5, 823.25, 822.75, 818.5, 818.5, 818.5, 0.0, 820.5, 820.0])
+intensivities = np.array([50, 49, 50, 50, 49, 49, 49, 49, 49, 49, 50, 50, 49, 50, 50, 50, 50, 51, 50, 50, 50, 50, 50, 50, 50, 49, 49, 47, 47, 47, 47, 46, 47, 47, 46, 47, 46, 47, 47, 46, 47, 46, 47, 46, 46, 46, 46, 45, 45, 45, 45, 45, 44, 45, 44, 43, 43, 42, 41, 41, 41, 39, 39, 38, 37, 37, 35, 32, 0.0, 0.0, 0.0, 39, 0.0, 32, 13, 0.0, 36, 37, 34, 29, 50, 53, 53, 52, 50, 52, 54, 55, 53, 52, 52, 52, 52, 52, 53, 51, 52, 52, 52, 52, 55, 0.0, 52, 51, 52, 52, 52, 52, 52, 50, 45, 0.0, 52, 52, 50, 47, 49, 52, 53, 52, 51, 47, 46, 53, 53, 51, 51, 50, 50, 50, 52, 52, 50, 50, 51, 50, 50, 49, 49, 50, 49, 49, 47, 47, 43, 44, 0.0, 45, 46, 44, 43, 0.0, 42, 49, 48, 47, 43, 0.0, 41, 0.0, 43, 43, 0.0, 44, 45, 46, 44, 43, 42, 45, 48, 44, 45, 42, 0.0, 47, 44, 40, 37, 0.0, 45, 0.0, 48, 47, 46, 47, 47, 46, 49, 44, 45, 46, 45, 40, 0.0, 45, 45, 43, 45, 44, 0.0, 46, 46, 43, 46, 46, 44, 46, 44, 44, 44, 46, 46, 47, 46, 46, 46, 45, 46, 45, 45, 45, 45, 44, 46, 46, 46, 26, 46, 46, 48, 51, 46, 47, 47, 46, 46, 47, 47, 47, 46, 46, 47, 47, 47, 47, 48, 48, 47, 48, 47, 48, 47, 47, 48, 47, 47, 48, 48, 49, 49, 50, 51, 52, 53, 51, 52, 52, 51, 49, 50, 53, 51, 0.0, 0.0, 0.0, 40, 45, 49, 51, 51, 50, 0.0, 49, 51, 56, 55, 0.0, 43, 0.0, 39, 46, 50, 50, 51, 50, 51, 50, 51, 50, 50, 50, 51, 48, 46, 0.0, 49, 51, 52, 53, 52, 52, 52, 52, 51, 50, 50, 51, 51, 51, 51, 50, 0.0, 0.0, 0.0, 52, 52, 53, 53, 51, 46, 0.0, 0.0, 46, 48, 49, 45, 0.0, 50, 49, 49, 49, 44, 0.0, 55, 56, 53, 51, 41, 51, 52, 52, 50, 51, 50, 50, 50, 0.0, 50, 50])    
 gf = GlassFilter()
-pcs, invalids, candidates = gf.stdv_filter(scan.scan, scan.intesivities, 175, 0, 0, 0)
+pcs, invalids, candidates = gf.stdv_filter(scan, intensivities, 175, 0, 0, 0)
 angles = [a for a in range(0, 360)]
 founded_inds = []
 window = 15
@@ -317,7 +320,7 @@ for pc in pcs.copy():
         continue
     start = pc.points[0].index
     end = pc.points[-1].index
-    _, k, b, coords, var_ratio = gf.fitting_filter(scan.scan, [start, dno_idx, end])
+    _, k, b, coords, var_ratio = gf.fitting_filter(scan, [start, dno_idx, end])
     print(f"Fitting: {k} {b} {coords} {var_ratio}")
     if var_ratio < 0.87:
         pcs.remove(pc)
@@ -326,9 +329,8 @@ for pc in pcs.copy():
         pca_data.append([k, b, coords, var_ratio, [start, dno_idx, end]])
         founded_inds.append(p.index)
 
-sc, oc = gf.patch(pcs, scan.scan)
-# inds = gf.accum_scans([scan.scan, scan.scan1, scan.scan2], 0, 0, 0)
-smoothed = np.convolve(scan.intesivities, np.ones(window)/window, mode='same')
+sc, oc = gf.patch(pcs, scan)
+smoothed = np.convolve(intensivities, np.ones(window)/window, mode='same')
 fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(9, 9))
 ax.set_theta_zero_location('N')
 ax.set_theta_direction(-1)
