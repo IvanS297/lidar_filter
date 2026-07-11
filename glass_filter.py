@@ -94,7 +94,7 @@ class GlassFilter:
         # склейка лучей в обрывки
         # нашелся еще один баг: склека склеивает только последовательные окна, а те которые черезз 2 и более индексов пропускает
         candidates = []
-        s = e = 0
+        s = e = mbeams[0].index
         prev_ind = mbeams[0].index
         pcs = []
         for i in range(1, len(mbeams)):
@@ -149,6 +149,14 @@ class GlassFilter:
         print(f"new candidates: {clued_candidates}")
         return pcs, invalids, clued_candidates
     
+    def find_frame(self, scan, start_idx, direction, max_steps=20):
+        ind = start_idx
+        for _ in range(max_steps):
+            ind = (ind + direction) % len(scan)
+            if scan[ind] > 0:
+                return scan[ind], ind
+        return None, None   # рама не нашлась за разумное число шагов
+    
     def valid_filter(self, min_points: int, min_amp: float, x: float, y: float, max_chng: float, pc: PointCloud, window: int):
         """
         форма пика: интенсивность точек в sequence  должна сначала монотонно возрастать, а затем убывать
@@ -165,9 +173,9 @@ class GlassFilter:
 
         # новый критерий: дропауты интенсивности
         intesiv_scrap = [pc.points[i].beam.intensiv for i in range(len(pc.points))]
-        if not 0 in intesiv_scrap:
-            #print(f"no dropouts")
-            return False, None
+        # if not 0 in intesiv_scrap:
+        #     #print(f"no dropouts")
+        #     return False, None
 
         # амплитуда:
         # медианный фильтр
@@ -265,30 +273,15 @@ class GlassFilter:
         occupied = [0]*len(new_scan)
         for pc in pcog:
             s, e = pc.points[0].index, pc.points[-1].index
-            win_frame_left = 0
-            ind = (s - 1)%360
-            vars = []
-            while new_scan[s] > win_frame_left:
-                win_frame_left = new_scan[ind]
-                vars.append(new_scan[ind])
-                if (s - ind) % 360 > 12:
-                    win_frame_left = max(vars)
-                    break
-                ind = (ind - 1) % 360
-            win_frame_right = 0
-            ind = (e + 1)%360
-            #print(f"vars left: {vars}")
-            vars = []
-            while scan[e] > win_frame_right:
-                win_frame_right = new_scan[ind]
-                vars.append(new_scan[ind])
-                if (ind - e) % 360 > 12:
-                    win_frame_right = max(vars)
-                    break
-                ind = (ind + 1) % 360
-            #print(f"vars right: {vars}")
-            #frame = win_frame_left if win_frame_right > win_frame_left else win_frame_right
-            frame = (win_frame_left + win_frame_right) / 2 # так работает намного лучше
+            win_frame_left, il = self.find_frame(scan, s, -1, 12)
+            win_frame_right, ir = self.find_frame(scan, e, 1, 12)
+            if il is None or ir is None:
+                continue
+            dif = abs(win_frame_left - win_frame_right) / max(win_frame_right, win_frame_left)
+            if dif < 0.3:
+                frame = (win_frame_left + win_frame_right) / 2 # так работает намного лучше
+            else: 
+                continue
             steps = (e - s) % 360 + 1
             #print(f"lframe: {win_frame_left} r_frame: {win_frame_right} s: {s} e: {e} points count: {steps}")
             
@@ -308,7 +301,7 @@ window = 15
 pca_data = []
 
 for pc in pcs.copy():
-    valid, dno_idx = gf.valid_filter(20, 2, 0, 0, 10000, pc, window)
+    valid, dno_idx = gf.valid_filter(5, 2, 0, 0, 10000, pc, window)
     if not valid:
         pcs.remove(pc)
         continue
