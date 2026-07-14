@@ -140,6 +140,7 @@ Uc = (D2 - D1) / N
 
 Главное отличие не в том, что один метод лучше другого, а в разных сценариях использования: Wang рассчитан на движущегося робота с историей сканов и тяжёлой SLAM-интеграцией, мой — лёгкий одно-скановый фильтр под статичный сенсор, взявший другой физический признак именно потому, что у нас стекло чаще стоит под углом, а не перпендикулярно лучу.
 
+```bibtex
 @article{tibebu2021lidar,
   title={Lidar-based glass detection for improved occupancy grid mapping},
   author={Tibebu, Haileleol and Roche, Jamie and De Silva, Varuna and Kondoz, Ahmet},
@@ -150,7 +151,9 @@ Uc = (D2 - D1) / N
   year={2021},
   publisher={MDPI}
 }
+```
 
+```bibtex
 @article{li2024detection,
   title={Detection and utilization of reflections in LiDAR scans through plane optimization and plane SLAM},
   author={Li, Yinjie and Zhao, Xiting and Schwertfeger, S{\"o}ren},
@@ -161,3 +164,4 @@ Uc = (D2 - D1) / N
   year={2024},
   publisher={MDPI}
 }
+```
