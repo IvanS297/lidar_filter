@@ -7,6 +7,7 @@
 Проблема в том, что обычный лидар не видит стекло как препятствие: часть лучей проходит насквозь и видит то, что за стеклом, часть отражается как от стены. Для occupancy grid карты это плохо — на месте стекла образуется дыра, через которую робот попытается проехать.
 
 Вот как скан выглядит на практике:  
+
 ![скан](research/14.png)
 
 Зеленым в paint'e я нарисовал, где на самом деле находится стекло. Это стекло - дверь на балкон, как видно сильно утопленная в стену. Это единственное стекло в моем доме, за которым есть объекты (за окнами дома на расстоянии 30-40 метров).
@@ -138,3 +139,25 @@ Uc = (D2 - D1) / N
 | Проверено на | Не тестировали | ~20 сканов одного стекла + коридор как контрольный отрицательный пример |
 
 Главное отличие не в том, что один метод лучше другого, а в разных сценариях использования: Wang рассчитан на движущегося робота с историей сканов и тяжёлой SLAM-интеграцией, мой — лёгкий одно-скановый фильтр под статичный сенсор, взявший другой физический признак именно потому, что у нас стекло чаще стоит под углом, а не перпендикулярно лучу.
+
+@article{tibebu2021lidar,
+  title={Lidar-based glass detection for improved occupancy grid mapping},
+  author={Tibebu, Haileleol and Roche, Jamie and De Silva, Varuna and Kondoz, Ahmet},
+  journal={Sensors},
+  volume={21},
+  number={7},
+  pages={2263},
+  year={2021},
+  publisher={MDPI}
+}
+
+@article{li2024detection,
+  title={Detection and utilization of reflections in LiDAR scans through plane optimization and plane SLAM},
+  author={Li, Yinjie and Zhao, Xiting and Schwertfeger, S{\"o}ren},
+  journal={Sensors},
+  volume={24},
+  number={15},
+  pages={4794},
+  year={2024},
+  publisher={MDPI}
+}
