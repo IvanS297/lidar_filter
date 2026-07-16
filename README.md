@@ -36,7 +36,7 @@ ros2 launch lidar_filter launch_filter.launch.py
 
 ### Демо:  
 
-![ros2](images/ros2.png)  
+![ros2](images/ros.png)  
 
 Тут белое - это то, что замазалось, а красное - изначальное.  
 
