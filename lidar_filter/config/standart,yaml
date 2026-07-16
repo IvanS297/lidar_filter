@@ -1,0 +1,13 @@
+/glass_node:
+    ros__parameters:
+        frame_id: "laser"
+        scan_topic: "/scan"
+        new_scan_topic: "/new_scan"
+        scan_len: 720
+
+        min_len: 3
+        min_amp: 2.5
+        smooth_win: 15
+        stdv_thresh: 175
+        max_chng: 10000.0
+        min_var_ratio: 0.8

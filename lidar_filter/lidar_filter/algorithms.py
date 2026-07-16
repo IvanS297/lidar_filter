@@ -1,0 +1,139 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+"""
+Моя реализзация алгоритма медианного фильтра
+"""
+
+"""
+Алгоритм:
+1. расчитать размеры отсутпов по краям (в индексав)
+2. дополнить края сигнала нулями
+3. пройти скользящими окнами по массиву сигналу и найти медиану для этого окна
+kernel_szie должен быть неченого размера
+"""
+def median_filter(signal, kernel_size=3):
+    if kernel_size % 2 == 0:
+        raise ValueError("Kernel size must be an odd number.")
+        
+    signal = np.asarray(signal)
+    n = len(signal)
+    
+    #1
+    pad_size = kernel_size // 2
+    
+    #2
+    padded_signal = np.pad(signal, pad_size, mode='constant', constant_values=0)
+    filtered_signal = np.zeros(n)
+    
+    #4
+    for i in range(n):
+        # текущее окно
+        window = padded_signal[i : i + kernel_size]
+        #медиана по окну
+        filtered_signal[i] = np.median(window)
+        
+    return filtered_signal
+
+"""
+Моя реализация PCA алгоритма
+"""
+
+""" 
+Алгоритм:
+1. найти средний вектор между точками
+2. высчитать матрицу ковариации
+3. высчитать собственные значение и собственные векторы 
+Собственные значения - это показатель того, сколько информации (дисперсии) удерживает в себе конкретная главная компонента. Чем больше число, тем важнее эта ось для объяснения структуры данных.
+Собственные векторы - это направления осей, вдоль которых данные имеют наибольший разброс (вариативность). Первой главной компонентой (PC1) становится собственный вектор с максимальным разбросом данных.
+4. отсортировать собсвенные векторы в порядке важности их осей
+5. Выбрать первые N векторов (главны компоненты)
+6. спроецировать отцентрированные данные на новые главные компоненты
+"""
+
+def pca(x: np.array, num_components: int):
+    """Реализация метода главных компонент (PCA)
+
+    Args:
+        x (np.array): массив со списками координат точек [[x0, y0], [x1, y1]]
+        num_components (int): количество главных компонент
+        return_kb (bool): вернуть коэффициенты прямой y=kx+b
+
+    Returns:
+        _type_: _description_
+    """
+    #1
+    x_mean = np.mean(x, axis=0)
+    x_cent = x - x_mean
+    
+    #2
+    c_mat = np.cov(x_cent, rowvar=False)
+    #3
+    eigenvals, eigenvecs = np.linalg.eig(c_mat)
+    #4
+    sorted_ind = np.argsort(eigenvals)[::-1]
+    sorted_eigenvals = eigenvals[sorted_ind]
+    sorted_eigenvecs = eigenvecs[:, sorted_ind]
+    
+    #5
+    eigenvec_subset = sorted_eigenvecs[:, :num_components]
+    
+    #6
+    x_reduced = np.dot(x_cent, eigenvec_subset)
+    pc1 = sorted_eigenvecs[:, 0]
+    v_x, v_y = pc1[0], pc1[1]
+    
+    # Защита от деления на ноль для вертикальных линий
+    if np.isclose(v_x, 0):
+        k = float('inf')
+        b = float('nan')
+    else:
+        k = v_y / v_x
+        mean_x, mean_y = x_mean[0], x_mean[1]
+        b = mean_y - k * mean_x
+
+    """
+    Попытка понять: можно ли вписать сюда прямую нормально, нужно посмотреть на значение дисперсии
+    Eigen-based features, Geometric features, Linearity metric, Anisotropy - названия данной формулы рассчета
+    """
+    l1 = sorted_eigenvals[0]
+    l2 = sorted_eigenvals[1]
+    var_ratio = l1 / (l1 + l2) if (l1 + l2) > 0 else 0 # отношение дисперсий
+    # смысл в том, что если это отношение дисперсий меньше 0.85, то это почти всегда мусор
+    return x_mean, k, b, var_ratio
+
+
+def visualize(points):
+
+    x_mean, k, b, var_ratio = pca(points, 2)
+    
+    print(f"y = {k:.4f}*x + ({b:.4f}) | Линейность: {var_ratio:.2f}")
+
+
+    plt.scatter(points[:, 0], points[:, 1], color='red', zorder=5, label='Точки')
+    plt.scatter(x_mean[0], x_mean[1], color='green', marker='X', s=150, zorder=6, label='Центр масс')
+    
+    x_line = np.linspace(min(points[:, 0]) - 0.5, max(points[:, 0]) + 0.5, 100)
+    plt.plot(x_line, k * x_line + b, color='blue', linestyle='--', label='PCA линия')
+    
+    plt.title(f'PCA (Линейность: {var_ratio:.2f})')
+    plt.axis('equal'); plt.grid(True, linestyle=':'); plt.legend(); plt.show()
+
+
+if __name__ == "__main__":
+    points = np.array([
+        [1.0, 3.1],
+        [2.0, 4.9],
+        [3.0, 7.2],
+        [4.0, 8.8]
+    ])
+    visualize(points)
+
+
+"""
+Порядок применения:
+1. расчиатть pca для точек
+2. найти координаты направляющего вектора (первый столбец)
+3. рассчитать коэффициенты k b
+"""
